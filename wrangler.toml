@@ -1,0 +1,21 @@
+name = "friend-chat"
+main = "src/worker/index.ts"
+compatibility_date = "2025-01-01"
+
+
+
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[durable_objects.bindings]]
+name = "SIGNALING"
+class_name = "SignalingServer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom", "SignalingServer"]
+
+[[r2_buckets]]
+binding = "CHAT_FILES"
+bucket_name = "chat-files"

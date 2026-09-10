@@ -1,0 +1,15 @@
+{
+  "name": "friend-chat",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler pages dev src --live-reload",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240101.0",
+    "wrangler": "^3.22.0"
+  }
+}

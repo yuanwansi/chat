@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>朋友聊天</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- 登录页 -->
+  <div id="login-page" class="page">
+    <div class="login-box">
+      <h1>👋 朋友聊天</h1>
+      <form id="login-form">
+        <input type="email" id="email" placeholder="邮箱地址" required>
+        <input type="password" id="password" placeholder="密码" required>
+        <button type="submit">登录</button>
+      </form>
+      <p class="switch">
+        没有账号？<a href="#" id="show-register">注册</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- 注册页 -->
+  <div id="register-page" class="page" style="display:none">
+    <div class="login-box">
+      <h1>📝 注册账号</h1>
+      <form id="register-form">
+        <input type="email" id="reg-email" placeholder="邮箱地址" required>
+        <input type="password" id="reg-password" placeholder="密码（至少6位）" required>
+        <button type="submit">注册</button>
+      </form>
+      <p class="switch">
+        已有账号？<a href="#" id="show-login">登录</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- 聊天主页 -->
+  <div id="chat-page" class="page" style="display:none">
+    <div class="chat-container">
+      <aside class="sidebar">
+        <div class="user-info">
+          <span id="current-user"></span>
+          <button id="logout-btn">退出</button>
+        </div>
+        <div class="room-list" id="room-list"></div>
+        <button id="create-room-btn">+ 创建聊天室</button>
+      </aside>
+
+      <main class="chat-main">
+        <div class="chat-header" id="chat-header">
+          <span>选择一个聊天室</span>
+          <button id="video-call-btn" style="display:none">📹 视频通话</button>
+        </div>
+        <div class="messages" id="messages"></div>
+        <div class="typing-indicator" id="typing-indicator"></div>
+        <form class="input-area" id="message-form">
+          <input type="text" id="message-input" placeholder="输入消息..." disabled>
+          <input type="file" id="file-input" accept="image/*" style="display:none">
+          <button type="button" id="attach-btn">📎</button>
+          <button type="submit" id="send-btn" disabled>发送</button>
+        </form>
+      </main>
+    </div>
+  </div>
+
+  <!-- 视频通话弹窗 -->
+  <div id="video-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div class="video-grid">
+        <video id="local-video" autoplay muted playsinline></video>
+        <video id="remote-video" autoplay playsinline></video>
+      </div>
+      <div class="video-controls">
+        <button id="hangup-btn">📞 挂断</button>
+        <button id="toggle-mic-btn">🎤 静音</button>
+        <button id="toggle-camera-btn">📷 关闭摄像头</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

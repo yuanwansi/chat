@@ -1,0 +1,50 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; height: 100vh; }
+
+.page { height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+.login-box { background: #16213e; padding: 40px; border-radius: 12px; width: 360px; text-align: center; }
+.login-box h1 { margin-bottom: 24px; font-size: 24px; }
+.login-box input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #0f3460; border-radius: 8px; background: #1a1a2e; color: #eee; font-size: 14px; }
+.login-box button { width: 100%; padding: 12px; background: #e94560; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+.login-box button:hover { background: #d63851; }
+.switch { margin-top: 16px; font-size: 14px; color: #888; }
+.switch a { color: #e94560; cursor: pointer; text-decoration: none; }
+
+.chat-container { display: flex; width: 100%; height: 100vh; max-width: 1200px; }
+
+.sidebar { width: 260px; background: #16213e; display: flex; flex-direction: column; padding: 16px; }
+.user-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #0f3460; }
+.user-info button { padding: 6px 12px; background: #0f3460; color: #eee; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.room-list { flex: 1; overflow-y: auto; }
+.room-item { padding: 12px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+.room-item:hover { background: #0f3460; }
+.room-item.active { background: #e94560; }
+#create-room-btn { margin-top: 12px; padding: 10px; background: #0f3460; color: #eee; border: none; border-radius: 8px; cursor: pointer; }
+
+.chat-main { flex: 1; display: flex; flex-direction: column; background: #1a1a2e; }
+.chat-header { padding: 16px 20px; background: #16213e; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #0f3460; }
+.chat-header button { padding: 8px 16px; background: #e94560; color: white; border: none; border-radius: 8px; cursor: pointer; }
+.messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+.message { max-width: 70%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; word-break: break-word; }
+.message.mine { align-self: flex-end; background: #e94560; }
+.message.other { align-self: flex-start; background: #0f3460; }
+.message .sender { font-size: 12px; color: #aaa; margin-bottom: 4px; }
+.message .time { font-size: 11px; color: #888; margin-top: 4px; text-align: right; }
+.message img { max-width: 200px; border-radius: 8px; cursor: pointer; }
+.typing-indicator { padding: 4px 20px; font-size: 12px; color: #888; min-height: 20px; }
+
+.input-area { padding: 16px 20px; background: #16213e; display: flex; gap: 8px; border-top: 1px solid #0f3460; }
+.input-area input[type="text"] { flex: 1; padding: 12px; border: 1px solid #0f3460; border-radius: 8px; background: #1a1a2e; color: #eee; font-size: 14px; }
+.input-area button { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+#send-btn { background: #e94560; color: white; }
+#send-btn:disabled { background: #555; cursor: not-allowed; }
+#attach-btn { background: #0f3460; color: #eee; }
+
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { width: 90%; max-width: 800px; }
+.video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.video-grid video { width: 100%; border-radius: 12px; background: #333; }
+.video-controls { display: flex; justify-content: center; gap: 16px; }
+.video-controls button { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; background: #0f3460; color: #eee; }
+#hangup-btn { background: #e94560; }
