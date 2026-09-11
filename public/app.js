@@ -143,6 +143,19 @@ function disconnectChat() {
 function connectChatSocket(roomId) {
   chatSocket = new WebSocket(`${WS_BASE}/chat/${roomId}?userId=${currentUser.id}`);
 
+  chatSocket.addEventListener('open', () => {
+    $('#chat-header span').textContent = '聊天中（已连接）';
+  });
+
+  chatSocket.addEventListener('error', (e) => {
+    $('#chat-header span').textContent = '聊天中（连接失败）';
+  });
+
+  chatSocket.addEventListener('close', () => {
+    $('#chat-header span').textContent = '聊天中（连接断开，2秒后重连）';
+    setTimeout(() => { if (currentRoom) connectChatSocket(currentRoom.id); }, 2000);
+  });
+
   chatSocket.addEventListener('message', (event) => {
     const data = JSON.parse(event.data);
 
@@ -234,6 +247,8 @@ $('#message-form').addEventListener('submit', async (e) => {
 
   if (chatSocket?.readyState === WebSocket.OPEN) {
     chatSocket.send(JSON.stringify({ type: 'message', content }));
+  } else {
+    alert('实时连接未建立，消息已保存但不会立即显示');
   }
 });
 
