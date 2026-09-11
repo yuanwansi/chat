@@ -7,6 +7,42 @@ const API_BASE = 'https://letter.yuanxiangxi039.workers.dev';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+function uiDialog({ title, text, input = false, inputValue = '', cancelable = false }) {
+  return new Promise(resolve => {
+    const modal = $('#ui-modal');
+    const titleEl = $('#ui-dialog-title');
+    const textEl = $('#ui-dialog-text');
+    const inputEl = $('#ui-dialog-input');
+    const okBtn = $('#ui-dialog-ok');
+    const cancelBtn = $('#ui-dialog-cancel');
+
+    titleEl.textContent = title || '';
+    textEl.textContent = text || '';
+    textEl.style.display = text ? '' : 'none';
+    inputEl.style.display = input ? '' : 'none';
+    inputEl.value = inputValue;
+    cancelBtn.style.display = cancelable ? '' : 'none';
+    modal.style.display = 'flex';
+    if (input) inputEl.focus();
+
+    const close = result => {
+      modal.style.display = 'none';
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+      inputEl.onkeydown = null;
+      resolve(result);
+    };
+
+    okBtn.onclick = () => close(input ? inputEl.value : true);
+    cancelBtn.onclick = () => close(input ? null : false);
+    inputEl.onkeydown = e => { if (e.key === 'Enter') close(inputEl.value); };
+  });
+}
+
+const uiAlert = text => uiDialog({ title: '提示', text });
+const uiPrompt = (text, value = '') => uiDialog({ title: '请输入', text, input: true, inputValue: value, cancelable: true });
+const uiConfirm = text => uiDialog({ title: '确认操作', text, cancelable: true });
+
 let currentUser = null;
 let currentRoom = null;
 let chatSocket = null;
@@ -38,13 +74,13 @@ $('#show-login').addEventListener('click', (e) => { e.preventDefault(); showPage
 
 $('#show-reset').addEventListener('click', async (e) => {
   e.preventDefault();
-  const mail = prompt('请输入注册时使用的邮箱，我们将发送重置密码邮件：');
+  const mail = await uiPrompt('请输入注册时使用的邮箱，我们将发送重置密码邮件：');
   if (!mail) return;
   const { error } = await supabase.auth.resetPasswordForEmail(mail.trim(), {
     redirectTo: window.location.origin
   });
-  if (error) return alert('发送失败：' + error.message);
-  alert('重置密码邮件已发送，请到邮箱查收');
+  if (error) return await uiAlert('发送失败：' + error.message);
+  await uiAlert('重置密码邮件已发送，请到邮箱查收');
 });
 
 $('#login-form').addEventListener('submit', async (e) => {
@@ -57,14 +93,14 @@ $('#login-form').addEventListener('submit', async (e) => {
       .select('email')
       .eq('username', account)
       .single();
-    if (!prof?.email) return alert('未找到该用户名对应的账号');
+    if (!prof?.email) return await uiAlert('未找到该用户名对应的账号');
     loginEmail = prof.email;
   }
   const { data, error } = await supabase.auth.signInWithPassword({
     email: loginEmail,
     password: $('#password').value
   });
-  if (error) return alert('登录失败：' + error.message);
+  if (error) return await uiAlert('登录失败：' + error.message);
   currentUser = data.user;
   showPage('chat');
   initChat();
@@ -76,20 +112,20 @@ $('#register-form').addEventListener('submit', async (e) => {
   const emailVal = $('#reg-email').value.trim();
   const pwd1 = $('#reg-password').value;
   const pwd2 = $('#reg-password2').value;
-  if (pwd1 !== pwd2) return alert('两次输入的密码不一致，请重新输入');
-  if (pwd1.length < 6) return alert('密码至少需要 6 位');
+  if (pwd1 !== pwd2) return await uiAlert('两次输入的密码不一致，请重新输入');
+  if (pwd1.length < 6) return await uiAlert('密码至少需要 6 位');
   const { data: existName } = await supabase
     .from('profiles')
     .select('id')
     .eq('username', username)
     .maybeSingle();
-  if (existName) return alert('该用户名已被占用，请换一个');
+  if (existName) return await uiAlert('该用户名已被占用，请换一个');
   const { data, error } = await supabase.auth.signUp({
     email: emailVal,
     password: pwd1,
     options: { data: { username } }
   });
-  if (error) return alert('注册失败：' + error.message);
+  if (error) return await uiAlert('注册失败：' + error.message);
   if (data?.user) {
     const { error: profErr } = await supabase.from('profiles').upsert({
       id: data.user.id,
@@ -98,9 +134,9 @@ $('#register-form').addEventListener('submit', async (e) => {
       avatar_url: null,
       created_at: new Date().toISOString()
     });
-    if (profErr) alert('账号已创建，但资料保存失败：' + profErr.message);
+    if (profErr) await uiAlert('账号已创建，但资料保存失败：' + profErr.message);
   }
-  alert('注册成功！请登录');
+  await uiAlert('注册成功！请登录');
   showPage('login');
 });
 
@@ -116,43 +152,43 @@ $('#pf-close').addEventListener('click', () => {
 
 $('#pf-save-username').addEventListener('click', async () => {
   const newName = $('#pf-username').value.trim();
-  if (!newName) return alert('用户名不能为空');
+  if (!newName) return await uiAlert('用户名不能为空');
   const { data: existName } = await supabase
     .from('profiles')
     .select('id')
     .eq('username', newName)
     .maybeSingle();
-  if (existName && existName.id !== currentUser.id) return alert('该用户名已被占用');
+  if (existName && existName.id !== currentUser.id) return await uiAlert('该用户名已被占用');
   const { error } = await supabase.from('profiles').upsert({
     id: currentUser.id,
     username: newName,
     email: currentUser.email
   });
-  if (error) return alert('保存失败：' + error.message);
+  if (error) return await uiAlert('保存失败：' + error.message);
   await refreshUserLabel();
-  alert('用户名已更新');
+  await uiAlert('用户名已更新');
 });
 
 $('#pf-save-email').addEventListener('click', async () => {
   const newEmail = $('#pf-email').value.trim();
-  if (!newEmail.includes('@')) return alert('请输入有效邮箱');
+  if (!newEmail.includes('@')) return await uiAlert('请输入有效邮箱');
   const { error } = await supabase.auth.updateUser({ email: newEmail });
-  if (error) return alert('更新邮箱失败：' + error.message);
+  if (error) return await uiAlert('更新邮箱失败：' + error.message);
   await supabase.from('profiles').upsert({
     id: currentUser.id,
     username: $('#current-user').textContent || newEmail.split('@')[0],
     email: newEmail
   });
-  alert('邮箱已更新，请到新邮箱确认');
+  await uiAlert('邮箱已更新，请到新邮箱确认');
 });
 
 $('#pf-save-password').addEventListener('click', async () => {
   const newPwd = $('#pf-new-password').value;
-  if (newPwd.length < 6) return alert('密码至少需要 6 位');
+  if (newPwd.length < 6) return await uiAlert('密码至少需要 6 位');
   const { error } = await supabase.auth.updateUser({ password: newPwd });
-  if (error) return alert('更新密码失败：' + error.message);
+  if (error) return await uiAlert('更新密码失败：' + error.message);
   $('#pf-new-password').value = '';
-  alert('密码已更新');
+  await uiAlert('密码已更新');
 });
 
 $('#pf-logout').addEventListener('click', async () => {
@@ -164,17 +200,17 @@ $('#pf-logout').addEventListener('click', async () => {
 });
 
 $('#pf-delete').addEventListener('click', async () => {
-  const pwd = prompt('注销账号不可恢复！请输入当前密码以确认注销：');
+  const pwd = await uiPrompt('注销账号不可恢复！请输入当前密码以确认注销：');
   if (!pwd) return;
   const email = currentUser?.email;
   const { error: signErr } = await supabase.auth.signInWithPassword({ email, password: pwd });
-  if (signErr) return alert('密码错误，注销已取消');
+  if (signErr) return await uiAlert('密码错误，注销已取消');
   const uid = currentUser.id;
   await supabase.from('room_members').delete().eq('user_id', uid);
   await supabase.from('profiles').delete().eq('id', uid);
   const { error: delErr } = await supabase.auth.admin.deleteUser(uid);
   if (delErr) {
-    alert('账号资料已清理，但注销未完成：' + delErr.message);
+    await uiAlert('账号资料已清理，但注销未完成：' + delErr.message);
     return;
   }
   await supabase.auth.signOut();
@@ -182,7 +218,7 @@ $('#pf-delete').addEventListener('click', async () => {
   $('#profile-modal').style.display = 'none';
   disconnectChat();
   showPage('login');
-  alert('账号已注销');
+  await uiAlert('账号已注销');
 });
 
 async function initChat() {
@@ -212,21 +248,21 @@ async function refreshUserLabel() {
 }
 
 $('#current-user').addEventListener('click', async () => {
-  const newName = prompt('输入新的昵称：');
+  const newName = await uiPrompt('输入新的昵称：');
   if (!newName) return;
   const { data: existName } = await supabase
     .from('profiles')
     .select('id')
     .eq('username', newName.trim())
     .single();
-  if (existName && existName.id !== currentUser.id) return alert('该昵称已被占用');
+  if (existName && existName.id !== currentUser.id) return await uiAlert('该昵称已被占用');
   await supabase.from('profiles').upsert({
     id: currentUser.id,
     username: newName.trim(),
     email: currentUser.email
   });
   await refreshUserLabel();
-  alert('昵称已更新');
+  await uiAlert('昵称已更新');
 });
 
 let allRooms = [];
@@ -287,11 +323,11 @@ async function createRoom(name) {
     .eq('name', name);
 
   if (existing && existing.length > 0) {
-    alert('岛屿名称已存在，请换一个名称');
+    await uiAlert('岛屿名称已存在，请换一个名称');
     return;
   }
 
-  const password = prompt('请为该岛屿设置密码（直接留空则不设密码，任何人可进入）：');
+  const password = await uiPrompt('请为该岛屿设置密码（直接留空则不设密码，任何人可进入）：');
   if (password === null) return;
 
   const pwdHash = await hashPassword(password || '');
@@ -302,13 +338,13 @@ async function createRoom(name) {
     .select()
     .single();
 
-  if (roomErr || !room?.id) return alert('创建房间失败：' + (roomErr?.message || '未能获取新房间信息'));
+  if (roomErr || !room?.id) return await uiAlert('创建房间失败：' + (roomErr?.message || '未能获取新房间信息'));
 
   const { error: memErr } = await supabase.from('room_members').insert({
     room_id: room.id,
     user_id: currentUser.id
   });
-  if (memErr) alert('房间已创建，但加入成员失败：' + memErr.message);
+  if (memErr) await uiAlert('房间已创建，但加入成员失败：' + memErr.message);
 
   await loadRooms();
   joinRoom(room.id);
@@ -317,19 +353,19 @@ async function createRoom(name) {
 $('#manage-room-btn').addEventListener('click', async () => {
   if (!currentRoom?.isCreator) return;
 
-  const action = prompt('输入 1 = 修改密码，2 = 解散岛屿：');
+  const action = await uiPrompt('输入 1 = 修改密码，2 = 解散岛屿：');
   if (action === '1') {
-    const newPwd = prompt('输入新密码（留空表示取消密码）：');
+    const newPwd = await uiPrompt('输入新密码（留空表示取消密码）：');
     if (newPwd === null) return;
     const newHash = await hashPassword(newPwd || '');
     await supabase
       .from('rooms')
       .update({ password: newHash })
       .eq('id', currentRoom.id);
-    alert('密码已更新');
+    await uiAlert('密码已更新');
     await loadRooms();
   } else if (action === '2') {
-    const confirmText = prompt('解散后该岛屿及消息将不可恢复，请输入岛屿名称以确认：');
+    const confirmText = await uiPrompt('解散后该岛屿及消息将不可恢复，请输入岛屿名称以确认：');
     if (confirmText === null) return;
     const { data: roomRow } = await supabase
       .from('rooms')
@@ -337,7 +373,7 @@ $('#manage-room-btn').addEventListener('click', async () => {
       .eq('id', currentRoom.id)
       .single();
     if (confirmText !== roomRow?.name) {
-      alert('名称不匹配，已取消解散');
+      await uiAlert('名称不匹配，已取消解散');
       return;
     }
     await supabase.from('messages').delete().eq('room_id', currentRoom.id);
@@ -350,12 +386,12 @@ $('#manage-room-btn').addEventListener('click', async () => {
     $('#message-input').disabled = true;
     $('#send-btn').disabled = true;
     await loadRooms();
-    alert('岛屿已解散');
+    await uiAlert('岛屿已解散');
   }
 });
 
-$('#create-room-btn').addEventListener('click', () => {
-  const name = prompt('岛屿名称：');
+$('#create-room-btn').addEventListener('click', async () => {
+  const name = await uiPrompt('岛屿名称：');
   if (name) createRoom(name);
 });
 
@@ -371,11 +407,11 @@ async function joinRoom(roomId) {
   const isCreator = roomInfo.created_by === currentUser.id;
 
   if (roomInfo.password && !isCreator) {
-    const input = prompt('该岛屿已加密，请输入密码：');
+    const input = await uiPrompt('该岛屿已加密，请输入密码：');
     if (input === null) return;
     const inputHash = await hashPassword(input);
     if (inputHash !== roomInfo.password) {
-      alert('密码错误，无法进入该岛屿');
+      await uiAlert('密码错误，无法进入该岛屿');
       return;
     }
   }
@@ -549,7 +585,7 @@ $('#message-form').addEventListener('submit', async (e) => {
   if (chatSocket?.readyState === WebSocket.OPEN) {
     chatSocket.send(JSON.stringify({ type: 'message', content }));
   } else {
-    alert('实时连接未建立，消息已保存但不会立即显示');
+    await uiAlert('实时连接未建立，消息已保存但不会立即显示');
   }
 });
 

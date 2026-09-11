@@ -85,6 +85,17 @@ body:before { content:""; position:fixed; inset:0; opacity:.24; pointer-events:n
 .profile-actions .close { border-color:var(--sea); color:var(--sea); }
 #back-btn { display:none; }
 
+.ui-dialog { width:min(360px, calc(100% - 32px)); padding:24px 22px 18px; }
+.ui-dialog-title { margin-bottom:8px; font:400 22px var(--display); letter-spacing:-.02em; }
+.ui-dialog-text { margin-bottom:14px; color:var(--muted); font-size:14px; line-height:1.7; word-break:break-word; }
+#ui-dialog-input { width:100%; padding:11px 13px; margin-bottom:14px; border:1px solid var(--line); border-radius:9px; background:#fbfbf7; color:var(--ink); font-size:14px; font-family:var(--sans); }
+#ui-dialog-input:focus { outline:none; border-color:var(--sea); background:#fff; }
+.ui-dialog-actions { display:flex; gap:9px; justify-content:flex-end; }
+.ui-dialog-actions button { padding:10px 18px; border:1px solid var(--line); border-radius:9px; background:var(--card); color:var(--ink); font:500 13px var(--sans); cursor:pointer; transition:.2s; }
+.ui-dialog-actions #ui-dialog-ok { border:0; background:var(--sea); color:#fff; font-weight:600; }
+.ui-dialog-actions #ui-dialog-ok:hover { background:#1f5a5d; }
+.ui-dialog-actions #ui-dialog-cancel:hover { border-color:var(--coral); color:var(--coral); }
+
 @media (max-width:720px) {
   body, .page, .chat-container { height:100vh; height:100dvh; }
   .chat-container { flex-direction:column; overflow:hidden; }
