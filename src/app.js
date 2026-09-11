@@ -87,6 +87,16 @@ function renderRoomList(rooms) {
 }
 
 async function createRoom(name) {
+  const { data: existing } = await supabase
+    .from('rooms')
+    .select('id')
+    .eq('name', name);
+
+  if (existing && existing.length > 0) {
+    alert('聊天室名称已存在，请换一个名称');
+    return;
+  }
+
   const { data: room } = await supabase
     .from('rooms')
     .insert({ name, created_by: currentUser.id })
