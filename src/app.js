@@ -193,16 +193,19 @@ async function createRoom(name) {
 
   const pwdHash = await hashPassword(password || '');
 
-  const { data: room } = await supabase
+  const { data: room, error: roomErr } = await supabase
     .from('rooms')
     .insert({ name, created_by: currentUser.id, password: pwdHash })
     .select()
     .single();
 
-  await supabase.from('room_members').insert({
+  if (roomErr || !room?.id) return alert('创建房间失败：' + (roomErr?.message || '未能获取新房间信息'));
+
+  const { error: memErr } = await supabase.from('room_members').insert({
     room_id: room.id,
     user_id: currentUser.id
   });
+  if (memErr) alert('房间已创建，但加入成员失败：' + memErr.message);
 
   await loadRooms();
   joinRoom(room.id);
