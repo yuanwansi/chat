@@ -899,7 +899,7 @@ async function startVideoCall() {
     try {
     if (data.type === 'join') {
       // 收到对方加入通知，userId 更大的一方作为 caller 发送 offer
-      if (currentUser.id > data.senderId) {
+      if (currentUser.id < data.senderId) {
         console.log('[WebRTC] I am caller, creating offer...');
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
