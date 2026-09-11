@@ -536,6 +536,11 @@ function connectChatSocket(roomId) {
 
     switch (data.type) {
       case 'message':
+        // 如果是自己发送的消息广播回来，移除临时消息
+        if (data.senderId === currentUser.id) {
+          const tempEls = $('#messages').querySelectorAll('[data-message-id^="temp-"]');
+          tempEls.forEach(el => el.remove());
+        }
         appendMessage({
           id: data.messageId,
           sender_id: data.senderId,
@@ -709,22 +714,69 @@ $('#message-form').addEventListener('submit', async (e) => {
 
   input.value = '';
 
-  if (chatSocket?.readyState === WebSocket.OPEN) {
-    chatSocket.send(JSON.stringify({ type: 'message', content, roomId: currentRoom.id }));
-  } else {
-    await fetch(`${API_BASE}/api/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-      },
-      body: JSON.stringify({
-        room_id: currentRoom.id,
-        sender_id: currentUser.id,
-        content
-      })
-    });
-    await uiAlert('实时连接未建立，消息已保存，请刷新查看');
+  // 先在界面显示『发送中』状态的临时消息
+  const tempId = 'temp-' + Date.now();
+  const tempMsg = {
+    id: tempId,
+    sender_id: currentUser.id,
+    content,
+    type: 'text',
+    created_at: new Date().toISOString()
+  };
+  await appendMessage(tempMsg);
+  const tempEl = $('#messages').querySelector(`[data-message-id="${tempId}"]`);
+  if (tempEl) {
+    const timeDiv = tempEl.querySelector('.time');
+    if (timeDiv) timeDiv.innerHTML += ' <span class="send-status">发送中...</span>';
+  }
+
+  try {
+    if (chatSocket?.readyState === WebSocket.OPEN) {
+      chatSocket.send(JSON.stringify({ type: 'message', content, roomId: currentRoom.id }));
+      // WS 发送后等待广播回来替换临时消息
+      // 5秒后如果仍未收到广播，标记为已发送（降级）
+      setTimeout(() => {
+        const el = $('#messages').querySelector(`[data-message-id="${tempId}"]`);
+        if (el) {
+          const status = el.querySelector('.send-status');
+          if (status) status.textContent = '已发送';
+        }
+      }, 5000);
+    } else {
+      await fetch(`${API_BASE}/api/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          room_id: currentRoom.id,
+          sender_id: currentUser.id,
+          content
+        })
+      });
+      // REST API 发送成功，更新状态
+      const el = $('#messages').querySelector(`[data-message-id="${tempId}"]`);
+      if (el) {
+        const status = el.querySelector('.send-status');
+        if (status) status.textContent = '已发送';
+      }
+    }
+  } catch (err) {
+    const el = $('#messages').querySelector(`[data-message-id="${tempId}"]`);
+    if (el) {
+      const status = el.querySelector('.send-status');
+      if (status) {
+        status.textContent = '发送失败';
+        status.style.color = '#e74c3c';
+        status.style.cursor = 'pointer';
+        status.onclick = () => {
+          el.remove();
+          $('#message-input').value = content;
+          $('#message-form').dispatchEvent(new Event('submit'));
+        };
+      }
+    }
   }
 });
 

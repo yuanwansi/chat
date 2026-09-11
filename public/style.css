@@ -145,3 +145,9 @@ body:before { content:""; position:fixed; inset:0; opacity:.24; pointer-events:n
   vertical-align: middle;
   margin-left: 4px;
 }
+
+.send-status {
+  font-size: 11px;
+  color: #999;
+  margin-left: 4px;
+}
