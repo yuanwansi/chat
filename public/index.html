@@ -4,13 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>朋友聊天</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <!-- 登录页 -->
   <div id="login-page" class="page">
     <div class="login-box">
-      <h1>👋 朋友聊天</h1>
+      <h1>朋友聊天</h1>
+      <p class="lede">用用户名或邮箱登录，与好友实时畅聊。</p>
       <form id="login-form">
         <input type="text" id="email" placeholder="用户名或邮箱" required autocomplete="off">
         <input type="password" id="password" placeholder="密码" required>
@@ -26,7 +30,8 @@
   <!-- 注册页 -->
   <div id="register-page" class="page" style="display:none">
     <div class="login-box">
-      <h1>📝 注册账号</h1>
+      <h1>注册账号</h1>
+      <p class="lede">设置用户名与邮箱，邮箱用于找回密码，也可用于登录。</p>
       <form id="register-form">
         <input type="text" id="reg-username" placeholder="用户名" required autocomplete="off">
         <input type="email" id="reg-email" placeholder="邮箱地址（用于找回密码）" required>
