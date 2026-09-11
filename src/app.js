@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = 'https://dumptrrjlwhkaepxdkye.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1bXB0cnJqbHdoa2FlcHhka3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMTUzMjEsImV4cCI6MjEwNDU5MTMyMX0.NbhAFD2S-YP3BgIgyBl_WQSFTIWr3istMn6Z5boPPD0';
 const WS_BASE = 'wss://chat.yuanxiangxi039.workers.dev';
+const API_BASE = 'https://chat.yuanxiangxi039.workers.dev';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -232,7 +233,7 @@ $('#message-form').addEventListener('submit', async (e) => {
 
   input.value = '';
 
-  await fetch(`${location.origin}/api/messages`, {
+  await fetch(`${API_BASE}/api/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -269,7 +270,7 @@ $('#file-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
-  const res = await fetch(`${location.origin}/api/upload-url`, {
+  const res = await fetch(`${API_BASE}/api/upload-url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename: file.name, userId: currentUser.id })
@@ -278,8 +279,8 @@ $('#file-input').addEventListener('change', async (e) => {
 
   await fetch(uploadUrl, { method: 'PUT', body: file });
 
-  const imageUrl = `${location.origin}/${key}`;
-  await fetch(`${location.origin}/api/messages`, {
+  const imageUrl = `${API_BASE}/${key}`;
+  await fetch(`${API_BASE}/api/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
