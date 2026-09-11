@@ -212,12 +212,16 @@ $('#pf-delete').addEventListener('click', async () => {
   const { error: signErr } = await supabase.auth.signInWithPassword({ email, password: pwd });
   if (signErr) return await uiAlert('密码错误，注销已取消');
   const uid = currentUser.id;
-  await supabase.from('room_members').delete().eq('user_id', uid);
-  await supabase.from('profiles').delete().eq('id', uid);
-  const { error: delErr } = await supabase.auth.admin.deleteUser(uid);
-  if (delErr) {
-    await uiAlert('账号资料已清理，但注销未完成：' + delErr.message);
-    return;
+  const session = await supabase.auth.getSession();
+  const token = session.data.session?.access_token;
+  if (!token) return await uiAlert('会话已过期，请重新登录后再试');
+  const res = await fetch(`${API_BASE}/api/delete-account`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return await uiAlert('注销失败：' + (err.error || '服务器错误'));
   }
   await supabase.auth.signOut();
   currentUser = null;
