@@ -945,8 +945,18 @@ async function startVideoCall() {
   });
 
   signalSocket.addEventListener('open', async () => {
+    console.log('[WebRTC] signalSocket connected, sending join...');
     // 通知对方自己已加入
     signalSocket.send(JSON.stringify({ type: 'join', targetId: 'peer' }));
+    console.log('[WebRTC] join sent');
+  });
+
+  signalSocket.addEventListener('error', (err) => {
+    console.error('[WebRTC] signalSocket error:', err);
+  });
+
+  signalSocket.addEventListener('close', (code, reason) => {
+    console.log('[WebRTC] signalSocket closed:', code, reason);
   });
 }
 
