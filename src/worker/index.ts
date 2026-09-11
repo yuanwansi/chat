@@ -7,7 +7,6 @@ interface Env {
   CHAT_ROOM: DurableObjectNamespace;
   SIGNALING: DurableObjectNamespace;
   CHAT_FILES: R2Bucket;
-  ASSETS: Fetcher;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_KEY: string;
@@ -53,7 +52,7 @@ export default {
       return handleSendMessage(request, env);
     }
 
-    return env.ASSETS.fetch(request);
+    return new Response('Not Found', { status: 404 });
   }
 };
 
