@@ -380,6 +380,11 @@ async function joinRoom(roomId) {
     }
   }
 
+  await supabase.from('room_members').upsert({
+    room_id: roomId,
+    user_id: currentUser.id
+  });
+
   disconnectChat();
 
   currentRoom = { id: roomId, isCreator };
