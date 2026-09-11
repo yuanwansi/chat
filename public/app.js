@@ -923,18 +923,14 @@ function setupSignalHandlers(ws) {
     }
 
     if (data.type === 'accept') {
-      // 对方接受了邀请，发起方作为 caller 发送 offer
+      // 对方接受了邀请，双方都建立 MediaRelay 连接
       if (isCallInitiator) {
         clearTimeout(callTimeout);
         if (inviteRetry) { clearInterval(inviteRetry); inviteRetry = null; }
         $('#call-invite-modal').style.display = 'none';
         await startVideoStream();
         $('#video-modal').style.display = 'flex';
-        console.log('[WebRTC] call accepted, creating offer...');
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        signalSocket.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, targetId: 'peer' }));
-        console.log('[WebRTC] offer sent');
+        console.log('[Media] call accepted, starting media relay...');
       }
     }
 
@@ -1006,43 +1002,80 @@ function setupSignalHandlers(ws) {
   });
 }
 
+let mediaSocket = null;
+let mediaRecorder = null;
+let remoteSourceBuffer = null;
+let remoteQueue = [];
+
 async function startVideoStream() {
-  // 创建 PeerConnection
-  peerConnection = new RTCPeerConnection({
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-    ]
+  localStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true });
+  $('#local-video').srcObject = localStream;
+
+  // 创建 MediaRelay WebSocket 连接
+  mediaSocket = new WebSocket(`${WS_BASE}/media/${currentRoom.id}?userId=${currentUser.id}`);
+
+  mediaSocket.binaryType = 'arraybuffer';
+
+  mediaSocket.addEventListener('open', () => {
+    console.log('[Media] relay connected, starting MediaRecorder...');
+    // 用 MediaRecorder 编码本地流
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') ? 'video/webm;codecs=vp8,opus' : 'video/webm';
+    mediaRecorder = new MediaRecorder(localStream, { mimeType, videoBitsPerSecond: 500000, audioBitsPerSecond: 64000 });
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0 && mediaSocket?.readyState === WebSocket.OPEN) {
+        mediaSocket.send(e.data);
+      }
+    };
+    mediaRecorder.start(100); // 每 100ms 产生一个数据块
   });
 
-  peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-      if (hasRemoteDesc && signalSocket?.readyState === WebSocket.OPEN) {
-        signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate, targetId: 'peer' }));
-      } else {
-        pendingCandidates.push(event.candidate);
+  mediaSocket.addEventListener('message', async (event) => {
+    const data = event.data;
+    if (typeof data === 'string') {
+      const msg = JSON.parse(data);
+      if (msg.type === 'peer-left') {
+        console.log('[Media] peer left');
+        $('#remote-video').srcObject = null;
       }
+      return;
     }
-  };
 
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  $('#local-video').srcObject = localStream;
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-  peerConnection.ontrack = (event) => {
-    console.log('[WebRTC] remote track received:', event.track.kind);
-    $('#remote-video').srcObject = event.streams[0];
-  };
+    // 接收对方的音视频数据块，用 MediaSource 播放
+    if (!remoteSourceBuffer) {
+      if (!$('#remote-video').srcObject) {
+        const ms = new MediaSource();
+        $('#remote-video').srcObject = ms;
+        ms.addEventListener('sourceopen', () => {
+          const mimeType = 'video/webm;codecs=vp8,opus';
+          remoteSourceBuffer = ms.addSourceBuffer(mimeType);
+          remoteSourceBuffer.mode = 'sequence';
+          remoteSourceBuffer.addEventListener('updateend', () => {
+            // 处理排队的数据
+            if (remoteQueue.length > 0 && !remoteSourceBuffer.updating) {
+              remoteSourceBuffer.appendBuffer(remoteQueue.shift());
+            }
+          });
+          // 处理第一个数据块
+          if (data instanceof ArrayBuffer) {
+            remoteSourceBuffer.appendBuffer(data);
+          }
+        });
+      }
+    } else if (!remoteSourceBuffer.updating) {
+      remoteSourceBuffer.appendBuffer(data);
+    } else {
+      // 排队等待
+      if (remoteQueue.length < 30) remoteQueue.push(data);
+    }
+  });
 
-  peerConnection.oniceconnectionstatechange = () => {
-    console.log('[WebRTC] ICE connection state:', peerConnection.iceConnectionState);
-  };
+  mediaSocket.addEventListener('error', (err) => {
+    console.error('[Media] relay error:', err);
+  });
 
-  peerConnection.onconnectionstatechange = () => {
-    console.log('[WebRTC] connection state:', peerConnection.connectionState);
-  };
+  mediaSocket.addEventListener('close', () => {
+    console.log('[Media] relay closed');
+  });
 }
 
 function hangupCall() {
@@ -1051,9 +1084,13 @@ function hangupCall() {
   if (signalSocket && signalSocket.readyState === WebSocket.OPEN) {
     signalSocket.send(JSON.stringify({ type: 'hangup', targetId: 'peer' }));
   }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); mediaRecorder = null; }
+  if (mediaSocket) { mediaSocket.close(); mediaSocket = null; }
   if (peerConnection) { peerConnection.close(); peerConnection = null; }
   if (signalSocket) { signalSocket.close(); signalSocket = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  remoteSourceBuffer = null;
+  remoteQueue = [];
   isCallInitiator = false;
 }
 
@@ -1063,8 +1100,11 @@ $('#call-accept-btn').addEventListener('click', async () => {
   $('#call-invite-modal').style.display = 'none';
   if (signalSocket?.readyState === WebSocket.OPEN) {
     signalSocket.send(JSON.stringify({ type: 'accept', targetId: 'peer' }));
-    console.log('[WebRTC] accept sent');
+    console.log('[Media] accept sent');
   }
+  // 接收方也建立 MediaRelay 连接
+  await startVideoStream();
+  $('#video-modal').style.display = 'flex';
 });
 
 // 拒绝视频通话

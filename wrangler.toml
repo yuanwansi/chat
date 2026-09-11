@@ -1,4 +1,4 @@
-name = "chat"
+name = "letter"
 main = "src/worker/index.ts"
 compatibility_date = "2025-01-01"
 
@@ -20,9 +20,17 @@ class_name = "ChatRoom"
 name = "SIGNALING"
 class_name = "SignalingServer"
 
+[[durable_objects.bindings]]
+name = "MEDIA_RELAY"
+class_name = "MediaRelay"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ChatRoom", "SignalingServer"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["MediaRelay"]
 
 [[r2_buckets]]
 binding = "CHAT_FILES"
