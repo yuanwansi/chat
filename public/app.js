@@ -503,6 +503,10 @@ function connectChatSocket(roomId) {
       case 'typing':
         $('#typing-indicator').textContent = data.isTyping ? '对方正在输入...' : '';
         break;
+
+      case 'recall':
+        markRecalled(data.messageId);
+        break;
     }
   });
 }
@@ -528,14 +532,48 @@ async function appendMessage(msg) {
 
   const div = document.createElement('div');
   div.className = `message ${isMine ? 'mine' : 'other'}`;
+  div.dataset.messageId = msg.id || '';
+
+  if (msg.deleted) {
+    div.innerHTML = `<div class="recalled">该消息已撤回</div><div class="time">${time}</div>`;
+    $('#messages').appendChild(div);
+    $('#messages').scrollTop = $('#messages').scrollHeight;
+    return;
+  }
+
+  const canRecall = isMine && msg.id && (Date.now() - new Date(msg.created_at).getTime() < 2 * 60 * 1000);
   div.innerHTML = `
     ${isMine ? '' : `<div class="sender">${senderName}</div>`}
     <div>${content}</div>
-    <div class="time">${time}</div>
+    <div class="time">${time}${canRecall ? ' <span class="recall-btn" data-id="' + msg.id + '">撤回</span>' : ''}</div>
   `;
+
+  const recallBtn = div.querySelector('.recall-btn');
+  if (recallBtn) {
+    recallBtn.addEventListener('click', async () => {
+      const ok = await uiConfirm('确定撤回这条消息吗？');
+      if (!ok) return;
+      const { error } = await supabase
+        .from('messages')
+        .update({ deleted: true })
+        .eq('id', msg.id);
+      if (error) return uiAlert('撤回失败：' + error.message);
+      if (chatSocket?.readyState === WebSocket.OPEN) {
+        chatSocket.send(JSON.stringify({ type: 'recall', messageId: msg.id }));
+      }
+      markRecalled(msg.id);
+    });
+  }
 
   $('#messages').appendChild(div);
   $('#messages').scrollTop = $('#messages').scrollHeight;
+}
+
+function markRecalled(messageId) {
+  const el = $('#messages').querySelector(`[data-message-id="${messageId}"]`);
+  if (!el) return;
+  const time = el.querySelector('.time')?.textContent?.replace('撤回', '').trim() || '';
+  el.innerHTML = `<div class="recalled">该消息已撤回</div><div class="time">${time}</div>`;
 }
 
 function appendSystemMessage(text) {

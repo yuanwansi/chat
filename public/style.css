@@ -85,6 +85,11 @@ body:before { content:""; position:fixed; inset:0; opacity:.24; pointer-events:n
 .profile-actions .close { border-color:var(--sea); color:var(--sea); }
 #back-btn { display:none; }
 
+.recalled { font-style:italic; opacity:.6; font-size:13px; }
+.recall-btn { margin-left:8px; cursor:pointer; color:#c9e3e2; font-size:11px; }
+.recall-btn:hover { color:#fff; text-decoration:underline; }
+.message.other .recall-btn { color:var(--muted); }
+
 .ui-dialog { width:min(360px, calc(100% - 32px)); padding:24px 22px 18px; }
 .ui-dialog-title { margin-bottom:8px; font:400 22px var(--display); letter-spacing:-.02em; }
 .ui-dialog-text { margin-bottom:14px; color:var(--muted); font-size:14px; line-height:1.7; word-break:break-word; }
