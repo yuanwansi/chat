@@ -84,17 +84,24 @@ body:before { content:""; position:fixed; inset:0; opacity:.24; pointer-events:n
 .profile-actions .danger:hover { background:var(--coral); color:#fff; }
 .profile-actions .close { border-color:var(--sea); color:var(--sea); }
 @media (max-width:720px) {
-  .chat-container { flex-direction:column; }
-  .sidebar { width:100%; border-right:0; border-bottom:1px solid var(--line); }
+  body, .page, .chat-container { height:100vh; height:100dvh; }
+  .chat-container { flex-direction:column; overflow:hidden; }
+  .sidebar { width:100%; flex-shrink:0; border-right:0; border-bottom:1px solid var(--line); padding:12px 14px; gap:8px; }
   .brand { justify-content:center; }
+  .brand-name { font-size:17px; }
   .sidebar .eyebrow { text-align:center; }
-  .user-info { flex-direction:row; justify-content:space-between; align-items:center; }
-  .room-list { max-height:34vh; }
-  .chat-header { padding:12px 16px; flex-wrap:wrap; gap:8px; }
-  .chat-header span:first-child { font-size:18px; }
-  .messages { padding:16px; }
+  .user-info { flex-direction:row; justify-content:space-between; align-items:center; padding-bottom:8px; }
+  .search-box { padding-bottom:8px; }
+  .room-list { max-height:18vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .room-item { padding:9px 12px; font-size:13px; }
+  #create-room-btn { padding:9px; }
+  .chat-main { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .chat-header { padding:10px 14px; flex-wrap:wrap; gap:8px; flex-shrink:0; }
+  .chat-header span:first-child { font-size:17px; }
+  .messages { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px; }
   .message { max-width:86%; }
-  .input-area { padding:12px 16px; }
+  .typing-indicator { padding:2px 14px 4px; flex-shrink:0; }
+  .input-area { padding:10px 14px; flex-shrink:0; }
   .input-area input[type=text], .input-area button { padding:11px 14px; font-size:15px; }
   .video-grid { grid-template-columns:1fr; }
   .profile-actions { flex-wrap:wrap; justify-content:stretch; }
