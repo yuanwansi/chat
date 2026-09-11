@@ -1,14 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const SUPABASE_URL = location.port === '8039'
-  ? location.origin + '/supabase'
+const SUPABASE_URL = location.pathname.startsWith('/letter')
+  ? location.origin + '/letter/supabase'
   : 'https://dumptrrjlwhkaepxdkye.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1bXB0cnJqbHdoa2FlcHhka3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMTUzMjEsImV4cCI6MjEwNDU5MTMyMX0.NbhAFD2S-YP3BgIgyBl_WQSFTIWr3istMn6Z5boPPD0';
-const WS_BASE = location.port === '8039'
-  ? 'ws://' + location.hostname + ':8039'
+const WS_BASE = location.pathname.startsWith('/letter')
+  ? 'ws://' + location.host + '/letter'
   : 'wss://letter.yuanxiangxi039.workers.dev';
-const API_BASE = location.port === '8039'
-  ? location.origin
+const API_BASE = location.pathname.startsWith('/letter')
+  ? location.origin + '/letter'
   : 'https://letter.yuanxiangxi039.workers.dev';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
