@@ -917,6 +917,7 @@ function setupSignalHandlers(ws) {
           hangupCall();
         }
       }, 30000);
+      }
     }
 
     if (data.type === 'accept') {
