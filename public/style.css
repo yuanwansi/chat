@@ -14,7 +14,13 @@ body:before { content:""; position:fixed; inset:0; opacity:.24; pointer-events:n
 .switch a { color:var(--sea); cursor:pointer; text-decoration:none; font-weight:600; }
 .switch a:hover { color:var(--coral); }
 .chat-container { display:flex; width:100%; height:100vh; max-width:1180px; margin:0 auto; position:relative; z-index:1; }
-.sidebar { width:270px; padding:20px 18px; display:flex; flex-direction:column; gap:14px; background:transparent; border-right:1px solid var(--line); }
+.sidebar { width:270px; padding:22px 18px; display:flex; flex-direction:column; gap:12px; background:transparent; border-right:1px solid var(--line); }
+.brand { display:flex; align-items:center; gap:9px; color:var(--ink); font-weight:800; letter-spacing:-.03em; }
+.brand-mark { display:grid; place-items:center; width:25px; height:25px; border:1.5px solid var(--ink); border-radius:50%; font-size:15px; transform:rotate(-14deg); }
+.brand-name { font:400 20px var(--display); letter-spacing:-.02em; }
+.eyebrow { margin:0 0 4px; font:500 10px var(--mono); letter-spacing:.14em; color:var(--sea); text-transform:uppercase; }
+.chat-header { padding:16px 22px; display:flex; justify-content:space-between; align-items:center; gap:10px; border-bottom:1px solid var(--line); background:linear-gradient(to bottom, rgba(255,254,250,.9), rgba(246,245,240,.72)); }
+.chat-header span:first-child { font:400 22px var(--display); letter-spacing:-.02em; }
 .user-info { display:flex; flex-direction:column; gap:10px; padding-bottom:14px; border-bottom:1px solid var(--line); }
 .user-info-row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 #current-user { font-size:15px; font-weight:700; letter-spacing:-.03em; cursor:pointer; color:var(--ink); }

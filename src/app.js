@@ -111,13 +111,24 @@ async function initChat() {
   await loadRooms();
 }
 
-async function refreshUserLabel() {
+async function ensureProfile() {
   const { data: prof } = await supabase
     .from('profiles')
     .select('username')
     .eq('id', currentUser.id)
-    .single();
-  const name = prof?.username || currentUser.email;
+    .maybeSingle();
+  if (prof?.username) return prof.username;
+  const fallback = (currentUser.email || '').split('@')[0] || '朋友';
+  await supabase.from('profiles').upsert({
+    id: currentUser.id,
+    username: fallback,
+    email: currentUser.email
+  });
+  return fallback;
+}
+
+async function refreshUserLabel() {
+  const name = await ensureProfile();
   $('#current-user').textContent = name;
 }
 
@@ -334,7 +345,7 @@ async function appendMessage(msg) {
       .from('profiles')
       .select('username')
       .eq('id', msg.sender_id)
-      .single();
+      .maybeSingle();
     senderName = prof?.username || msg.sender_id.slice(0, 8);
   }
 
