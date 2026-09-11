@@ -853,23 +853,44 @@ $('#file-input').addEventListener('change', async (e) => {
 
 $('#video-call-btn').addEventListener('click', startVideoCall);
 
+let callTimeout = null;
+let isCallInitiator = false;
+
 async function startVideoCall() {
-  $('#video-modal').style.display = 'flex';
+  isCallInitiator = true;
+  $('#call-invite-modal').style.display = 'flex';
+  $('#call-invite-text').textContent = '正在邀请对方视频通话...';
+  $('#call-invite-waiting').style.display = '';
+  $('#call-invite-incoming').style.display = 'none';
 
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  $('#local-video').srcObject = localStream;
-
+  // 连接信令服务器并发送邀请
   signalSocket = new WebSocket(`${WS_BASE}/signal/${currentRoom.id}?userId=${currentUser.id}`);
 
+  signalSocket.addEventListener('open', () => {
+    console.log('[WebRTC] signalSocket connected, sending invite...');
+    signalSocket.send(JSON.stringify({ type: 'invite', targetId: 'peer' }));
+    // 30秒超时
+    callTimeout = setTimeout(() => {
+      if ($('#call-invite-modal').style.display !== 'none') {
+        $('#call-invite-modal').style.display = 'none';
+        uiAlert('对方未接听，通话已取消');
+        hangupCall();
+      }
+    }, 30000);
+  });
+
+  signalSocket.addEventListener('error', (err) => {
+    console.error('[WebRTC] signalSocket error:', err);
+  });
+
+  signalSocket.addEventListener('close', (code, reason) => {
+    console.log('[WebRTC] signalSocket closed:', code, reason);
+  });
+
+  // 预创建 PeerConnection（但不发送 offer，等对方接受后再发）
   peerConnection = new RTCPeerConnection({
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
   });
-
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-  peerConnection.ontrack = (event) => {
-    $('#remote-video').srcObject = event.streams[0];
-  };
 
   let hasRemoteDesc = false;
   let pendingCandidates = [];
@@ -877,11 +898,7 @@ async function startVideoCall() {
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
       if (hasRemoteDesc && signalSocket?.readyState === WebSocket.OPEN) {
-        signalSocket.send(JSON.stringify({
-          type: 'ice-candidate',
-          candidate: event.candidate,
-          targetId: 'peer'
-        }));
+        signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate, targetId: 'peer' }));
       } else {
         pendingCandidates.push(event.candidate);
       }
@@ -890,17 +907,36 @@ async function startVideoCall() {
 
   signalSocket.addEventListener('message', async (event) => {
     const data = JSON.parse(event.data);
-
-    // 忽略自己发送的信令消息
     if (data.senderId === currentUser.id) return;
-
     console.log('[WebRTC] received:', data.type, 'from:', data.senderId?.substring(0, 8));
 
     try {
-    if (data.type === 'join') {
-      // 收到对方加入通知，userId 更大的一方作为 caller 发送 offer
-      if (currentUser.id < data.senderId) {
-        console.log('[WebRTC] I am caller, creating offer...');
+    if (data.type === 'invite') {
+      // 收到视频通话邀请，显示来电弹窗
+      isCallInitiator = false;
+      const { data: prof } = await supabase.from('profiles').select('username').eq('id', data.senderId).maybeSingle();
+      const callerName = prof?.username || data.senderId.substring(0, 8);
+      $('#call-invite-modal').style.display = 'flex';
+      $('#call-invite-text').textContent = callerName + ' 邀请你视频通话';
+      $('#call-invite-waiting').style.display = 'none';
+      $('#call-invite-incoming').style.display = '';
+      // 30秒超时自动拒绝
+      callTimeout = setTimeout(() => {
+        if ($('#call-invite-modal').style.display !== 'none') {
+          $('#call-invite-modal').style.display = 'none';
+          hangupCall();
+        }
+      }, 30000);
+    }
+
+    if (data.type === 'accept') {
+      // 对方接受了邀请，发起方作为 caller 发送 offer
+      if (isCallInitiator) {
+        clearTimeout(callTimeout);
+        $('#call-invite-modal').style.display = 'none';
+        await startVideoStream();
+        $('#video-modal').style.display = 'flex';
+        console.log('[WebRTC] call accepted, creating offer...');
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         signalSocket.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, targetId: 'peer' }));
@@ -908,26 +944,41 @@ async function startVideoCall() {
       }
     }
 
-    if (data.type === 'offer') {
-      console.log('[WebRTC] received offer, setting remote description...');
-      await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
-      hasRemoteDesc = true;
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      signalSocket.send(JSON.stringify({ type: 'answer', sdp: answer.sdp, targetId: 'peer' }));
-      console.log('[WebRTC] answer sent');
-      // 发送缓存的 ICE candidate
-      for (const c of pendingCandidates) {
-        signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: c, targetId: 'peer' }));
+    if (data.type === 'reject') {
+      // 对方拒绝了邀请
+      if (isCallInitiator) {
+        clearTimeout(callTimeout);
+        $('#call-invite-modal').style.display = 'none';
+        hangupCall();
+        await uiAlert('对方已拒绝视频通话');
       }
-      pendingCandidates = [];
+    }
+
+    if (data.type === 'offer') {
+      // 收到 offer（接收方），回复 answer
+      if (!isCallInitiator) {
+        clearTimeout(callTimeout);
+        $('#call-invite-modal').style.display = 'none';
+        await startVideoStream();
+        $('#video-modal').style.display = 'flex';
+        console.log('[WebRTC] received offer, setting remote description...');
+        await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
+        hasRemoteDesc = true;
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        signalSocket.send(JSON.stringify({ type: 'answer', sdp: answer.sdp, targetId: 'peer' }));
+        console.log('[WebRTC] answer sent');
+        for (const c of pendingCandidates) {
+          signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: c, targetId: 'peer' }));
+        }
+        pendingCandidates = [];
+      }
     }
 
     if (data.type === 'answer') {
       console.log('[WebRTC] received answer, setting remote description...');
       await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
       hasRemoteDesc = true;
-      // 发送缓存的 ICE candidate
       for (const c of pendingCandidates) {
         signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: c, targetId: 'peer' }));
       }
@@ -939,31 +990,62 @@ async function startVideoCall() {
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
       }
     }
+
+    if (data.type === 'hangup') {
+      $('#call-invite-modal').style.display = 'none';
+      $('#video-modal').style.display = 'none';
+      hangupCall();
+      await uiAlert('对方已挂断');
+    }
     } catch (err) {
       console.error('[WebRTC] error:', err);
     }
   });
-
-  signalSocket.addEventListener('open', async () => {
-    console.log('[WebRTC] signalSocket connected, sending join...');
-    // 通知对方自己已加入
-    signalSocket.send(JSON.stringify({ type: 'join', targetId: 'peer' }));
-    console.log('[WebRTC] join sent');
-  });
-
-  signalSocket.addEventListener('error', (err) => {
-    console.error('[WebRTC] signalSocket error:', err);
-  });
-
-  signalSocket.addEventListener('close', (code, reason) => {
-    console.log('[WebRTC] signalSocket closed:', code, reason);
-  });
 }
 
-$('#hangup-btn').addEventListener('click', () => {
+async function startVideoStream() {
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  $('#local-video').srcObject = localStream;
+  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  peerConnection.ontrack = (event) => {
+    $('#remote-video').srcObject = event.streams[0];
+  };
+}
+
+function hangupCall() {
+  if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
+  if (signalSocket && signalSocket.readyState === WebSocket.OPEN) {
+    signalSocket.send(JSON.stringify({ type: 'hangup', targetId: 'peer' }));
+  }
   if (peerConnection) { peerConnection.close(); peerConnection = null; }
   if (signalSocket) { signalSocket.close(); signalSocket = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  isCallInitiator = false;
+}
+
+// 接受视频通话
+$('#call-accept-btn').addEventListener('click', async () => {
+  clearTimeout(callTimeout);
+  $('#call-invite-modal').style.display = 'none';
+  if (signalSocket?.readyState === WebSocket.OPEN) {
+    signalSocket.send(JSON.stringify({ type: 'accept', targetId: 'peer' }));
+    console.log('[WebRTC] accept sent');
+  }
+});
+
+// 拒绝视频通话
+$('#call-reject-btn').addEventListener('click', async () => {
+  clearTimeout(callTimeout);
+  $('#call-invite-modal').style.display = 'none';
+  if (signalSocket?.readyState === WebSocket.OPEN) {
+    signalSocket.send(JSON.stringify({ type: 'reject', targetId: 'peer' }));
+    console.log('[WebRTC] reject sent');
+  }
+  hangupCall();
+});
+
+$('#hangup-btn').addEventListener('click', () => {
+  hangupCall();
   $('#video-modal').style.display = 'none';
   $('#local-video').srcObject = null;
   $('#remote-video').srcObject = null;

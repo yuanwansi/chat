@@ -151,3 +151,37 @@ body:before { content:""; position:fixed; inset:0; opacity:.24; pointer-events:n
   color: #999;
   margin-left: 4px;
 }
+
+.call-status {
+  text-align: center;
+  padding: 20px;
+  font-size: 15px;
+  color: #666;
+}
+
+.call-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.call-accept {
+  padding: 12px 28px;
+  font-size: 16px;
+  border: none;
+  border-radius: 12px;
+  background: #27ae60;
+  color: #fff;
+  cursor: pointer;
+}
+
+.call-reject {
+  padding: 12px 28px;
+  font-size: 16px;
+  border: none;
+  border-radius: 12px;
+  background: #e74c3c;
+  color: #fff;
+  cursor: pointer;
+}

@@ -139,6 +139,21 @@
     </div>
   </div>
 
+  <!-- 来电邀请弹窗 -->
+  <div id="call-invite-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h2 class="modal-title">📹 视频通话邀请</h2>
+      <p id="call-invite-text" class="modal-sub">正在邀请对方视频通话...</p>
+      <div id="call-invite-waiting" class="call-status">
+        <p>⏳ 等待对方接受...</p>
+      </div>
+      <div id="call-invite-incoming" class="call-actions" style="display:none">
+        <button id="call-accept-btn" class="call-accept">✅ 接受</button>
+        <button id="call-reject-btn" class="call-reject">❌ 拒绝</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 站内通用弹窗 -->
   <div class="modal" id="ui-modal" style="display:none">
     <div class="modal-content ui-dialog">
