@@ -286,7 +286,7 @@ async function loadRooms() {
     .order('created_at', { ascending: true });
 
   allRooms = rooms || [];
-  renderRoomList();
+  await renderRoomList();
 }
 
 function filteredRooms() {
@@ -298,18 +298,44 @@ function filteredRooms() {
   });
 }
 
-function renderRoomList() {
+async function renderRoomList() {
   const list = $('#room-list');
   const rooms = filteredRooms();
   if (!rooms.length) {
     list.innerHTML = '<div class="empty-tip">没有符合条件的房间</div>';
     return;
   }
-  list.innerHTML = rooms.map(r => `
+
+  // 查询用户加入的所有房间的 last_read_at
+  const { data: memberships } = await supabase
+    .from('room_members')
+    .select('room_id, last_read_at')
+    .eq('user_id', currentUser.id);
+  const readMap = {};
+  (memberships || []).forEach(m => { readMap[m.room_id] = m.last_read_at; });
+
+  // 查询每个房间的未读消息数
+  const unreadMap = {};
+  for (const r of rooms) {
+    let query = supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('room_id', r.id);
+    if (readMap[r.id]) {
+      query = query.gt('created_at', readMap[r.id]);
+    }
+    const { count } = await query;
+    unreadMap[r.id] = count || 0;
+  }
+
+  list.innerHTML = rooms.map(r => {
+    const unread = unreadMap[r.id] || 0;
+    const unreadBadge = unread > 0 ? ` <span class="unread-badge">${unread > 99 ? '99+' : unread}</span>` : '';
+    return `
     <div class="room-item ${currentRoom?.id === r.id ? 'active' : ''}" data-id="${r.id}">
-      # ${r.name} ${r.password ? '🔒' : ''}
-    </div>
-  `).join('');
+      # ${r.name} ${r.password ? '🔒' : ''}${unreadBadge}
+    </div>`;
+  }).join('');
 
   list.querySelectorAll('.room-item').forEach(el => {
     el.addEventListener('click', () => joinRoom(el.dataset.id));
@@ -428,7 +454,8 @@ async function joinRoom(roomId) {
 
   await supabase.from('room_members').upsert({
     room_id: roomId,
-    user_id: currentUser.id
+    user_id: currentUser.id,
+    last_read_at: new Date().toISOString()
   });
 
   disconnectChat();
@@ -457,6 +484,13 @@ async function joinRoom(roomId) {
 }
 
 function disconnectChat() {
+  if (currentRoom) {
+    supabase.from('room_members').upsert({
+      room_id: currentRoom.id,
+      user_id: currentUser.id,
+      last_read_at: new Date().toISOString()
+    });
+  }
   if (chatSocket) { chatSocket.close(); chatSocket = null; }
   if (signalSocket) { signalSocket.close(); signalSocket = null; }
   currentRoom = null;
@@ -464,6 +498,13 @@ function disconnectChat() {
 }
 
 $('#back-btn').addEventListener('click', async () => {
+  if (currentRoom) {
+    await supabase.from('room_members').upsert({
+      room_id: currentRoom.id,
+      user_id: currentUser.id,
+      last_read_at: new Date().toISOString()
+    });
+  }
   disconnectChat();
   $('#chat-header span').textContent = '选择一个岛屿';
   $('#video-call-btn').style.display = 'none';
