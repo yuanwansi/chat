@@ -15,6 +15,13 @@ let peerConnection = null;
 let localStream = null;
 
 const $ = (sel) => document.querySelector(sel);
+
+async function hashPassword(plain) {
+  if (!plain) return null;
+  const data = new TextEncoder().encode('chat-room-salt:' + plain);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 const pages = {
   login: $('#login-page'),
   register: $('#register-page'),
@@ -100,9 +107,11 @@ async function createRoom(name) {
   const password = prompt('请为该聊天室设置密码（直接留空则不设密码，任何人可进入）：');
   if (password === null) return;
 
+  const pwdHash = await hashPassword(password || '');
+
   const { data: room } = await supabase
     .from('rooms')
-    .insert({ name, created_by: currentUser.id, password: password || null })
+    .insert({ name, created_by: currentUser.id, password: pwdHash })
     .select()
     .single();
 
@@ -122,9 +131,10 @@ $('#manage-room-btn').addEventListener('click', async () => {
   if (action === '1') {
     const newPwd = prompt('输入新密码（留空表示取消密码）：');
     if (newPwd === null) return;
+    const newHash = await hashPassword(newPwd || '');
     await supabase
       .from('rooms')
-      .update({ password: newPwd || null })
+      .update({ password: newHash })
       .eq('id', currentRoom.id);
     alert('密码已更新');
     await loadRooms();
@@ -173,7 +183,8 @@ async function joinRoom(roomId) {
   if (roomInfo.password && !isCreator) {
     const input = prompt('该聊天室已加密，请输入密码：');
     if (input === null) return;
-    if (input !== roomInfo.password) {
+    const inputHash = await hashPassword(input);
+    if (inputHash !== roomInfo.password) {
       alert('密码错误，无法进入该聊天室');
       return;
     }
