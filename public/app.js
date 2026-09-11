@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+console.log('[App] app.js loaded v2 ' + new Date().toISOString());
+
 const SUPABASE_URL = location.pathname.startsWith('/letter')
   ? location.origin + '/letter/supabase'
   : 'https://dumptrrjlwhkaepxdkye.supabase.co';
