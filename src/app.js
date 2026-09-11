@@ -77,7 +77,7 @@ function renderRoomList(rooms) {
   const list = $('#room-list');
   list.innerHTML = rooms.map(r => `
     <div class="room-item ${currentRoom?.id === r.id ? 'active' : ''}" data-id="${r.id}">
-      # ${r.name}
+      # ${r.name} ${r.password ? '🔒' : ''}
     </div>
   `).join('');
 
@@ -97,9 +97,12 @@ async function createRoom(name) {
     return;
   }
 
+  const password = prompt('请为该聊天室设置密码（直接留空则不设密码，任何人可进入）：');
+  if (password === null) return;
+
   const { data: room } = await supabase
     .from('rooms')
-    .insert({ name, created_by: currentUser.id })
+    .insert({ name, created_by: currentUser.id, password: password || null })
     .select()
     .single();
 
@@ -112,15 +115,73 @@ async function createRoom(name) {
   joinRoom(room.id);
 }
 
+$('#manage-room-btn').addEventListener('click', async () => {
+  if (!currentRoom?.isCreator) return;
+
+  const action = prompt('输入 1 = 修改密码，2 = 解散聊天室：');
+  if (action === '1') {
+    const newPwd = prompt('输入新密码（留空表示取消密码）：');
+    if (newPwd === null) return;
+    await supabase
+      .from('rooms')
+      .update({ password: newPwd || null })
+      .eq('id', currentRoom.id);
+    alert('密码已更新');
+    await loadRooms();
+  } else if (action === '2') {
+    const confirmText = prompt('解散后该聊天室及消息将不可恢复，请输入聊天室名称以确认：');
+    if (confirmText === null) return;
+    const { data: roomRow } = await supabase
+      .from('rooms')
+      .select('name')
+      .eq('id', currentRoom.id)
+      .single();
+    if (confirmText !== roomRow?.name) {
+      alert('名称不匹配，已取消解散');
+      return;
+    }
+    await supabase.from('messages').delete().eq('room_id', currentRoom.id);
+    await supabase.from('room_members').delete().eq('room_id', currentRoom.id);
+    await supabase.from('rooms').delete().eq('id', currentRoom.id);
+    disconnectChat();
+    currentRoom = null;
+    $('#messages').innerHTML = '';
+    $('#manage-room-btn').style.display = 'none';
+    $('#message-input').disabled = true;
+    $('#send-btn').disabled = true;
+    await loadRooms();
+    alert('聊天室已解散');
+  }
+});
+
 $('#create-room-btn').addEventListener('click', () => {
   const name = prompt('聊天室名称：');
   if (name) createRoom(name);
 });
 
 async function joinRoom(roomId) {
+  const { data: roomInfo } = await supabase
+    .from('rooms')
+    .select('*')
+    .eq('id', roomId)
+    .single();
+
+  if (!roomInfo) return;
+
+  const isCreator = roomInfo.created_by === currentUser.id;
+
+  if (roomInfo.password && !isCreator) {
+    const input = prompt('该聊天室已加密，请输入密码：');
+    if (input === null) return;
+    if (input !== roomInfo.password) {
+      alert('密码错误，无法进入该聊天室');
+      return;
+    }
+  }
+
   disconnectChat();
 
-  currentRoom = { id: roomId };
+  currentRoom = { id: roomId, isCreator };
   renderRoomList([]);
   await loadRooms();
 
@@ -129,6 +190,7 @@ async function joinRoom(roomId) {
   $('#message-input').disabled = false;
   $('#send-btn').disabled = false;
   $('#messages').innerHTML = '';
+  $('#manage-room-btn').style.display = isCreator ? 'inline-block' : 'none';
 
   await loadMessages();
   connectChatSocket(roomId);
