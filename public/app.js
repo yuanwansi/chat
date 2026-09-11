@@ -74,26 +74,31 @@ $('#register-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = $('#reg-username').value.trim();
   const emailVal = $('#reg-email').value.trim();
+  const pwd1 = $('#reg-password').value;
+  const pwd2 = $('#reg-password2').value;
+  if (pwd1 !== pwd2) return alert('两次输入的密码不一致，请重新输入');
+  if (pwd1.length < 6) return alert('密码至少需要 6 位');
   const { data: existName } = await supabase
     .from('profiles')
     .select('id')
     .eq('username', username)
-    .single();
+    .maybeSingle();
   if (existName) return alert('该用户名已被占用，请换一个');
   const { data, error } = await supabase.auth.signUp({
     email: emailVal,
-    password: $('#reg-password').value,
+    password: pwd1,
     options: { data: { username } }
   });
   if (error) return alert('注册失败：' + error.message);
   if (data?.user) {
-    await supabase.from('profiles').upsert({
+    const { error: profErr } = await supabase.from('profiles').upsert({
       id: data.user.id,
       username,
       email: emailVal,
       avatar_url: null,
       created_at: new Date().toISOString()
     });
+    if (profErr) alert('账号已创建，但资料保存失败：' + profErr.message);
   }
   alert('注册成功！请登录');
   showPage('login');
