@@ -12,9 +12,19 @@ interface Env {
   SUPABASE_SERVICE_KEY: string;
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
 
     // === WebSocket 路由 ===
     if (url.pathname.startsWith('/chat/')) {
@@ -55,7 +65,7 @@ async function handleUploadUrl(request: Request, env: Env): Promise<Response> {
     expiresIn: 300
   });
 
-  return Response.json({ uploadUrl, key });
+  return Response.json({ uploadUrl, key }, { headers: corsHeaders });
 }
 
 async function handleGetMessages(request: Request, env: Env): Promise<Response> {
@@ -76,7 +86,7 @@ async function handleGetMessages(request: Request, env: Env): Promise<Response> 
   });
 
   const messages = await response.json() as any[];
-  return Response.json(messages);
+  return Response.json(messages, { headers: corsHeaders });
 }
 
 async function handleSendMessage(request: Request, env: Env): Promise<Response> {
@@ -100,5 +110,5 @@ async function handleSendMessage(request: Request, env: Env): Promise<Response> 
   });
 
   const message = await response.json() as any;
-  return Response.json(message);
+  return Response.json(message, { headers: corsHeaders });
 }
