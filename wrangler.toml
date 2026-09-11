@@ -2,6 +2,14 @@ name = "chat"
 main = "src/worker/index.ts"
 compatibility_date = "2025-01-01"
 
+[vars]
+SUPABASE_URL = "https://dumptrrjlwhkaepxdkye.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1bXB0cnJqbHdoa2FlcHhka3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMTUzMjEsImV4cCI6MjEwNDU5MTMyMX0.NbhAFD2S-YP3BgIgyBl_WQSFTIWr3istMn6Z5boPPD0"
+SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1bXB0cnJqbHdoa2FlcHhka3llIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4OTAxNTMyMSwiZXhwIjoyMTA0NTkxMzIxfQ.yJTDZiioR0o1ahAdOfkYDnVc-LvZVyh8dVkqmunyH4s"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
 
 
 [[durable_objects.bindings]]
