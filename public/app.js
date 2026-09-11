@@ -475,6 +475,11 @@ async function joinRoom(roomId) {
   await loadMessages();
   connectChatSocket(roomId);
 
+  // 创建信令 WebSocket 保持连接，用于接收视频通话邀请
+  if (signalSocket) { signalSocket.close(); signalSocket = null; }
+  signalSocket = new WebSocket(`${WS_BASE}/signal/${roomId}?userId=${currentUser.id}`);
+  setupSignalHandlers(signalSocket);
+
   // 滚动到顶部时加载更多历史消息
   $('#messages').addEventListener('scroll', async () => {
     if ($('#messages').scrollTop === 0 && currentRoom && !isLoadingMore) {
@@ -858,76 +863,47 @@ let isCallInitiator = false;
 let inviteRetry = null;
 
 async function startVideoCall() {
+  if (!signalSocket || signalSocket.readyState !== WebSocket.OPEN) {
+    return await uiAlert('信令连接未建立，请稍后重试');
+  }
   isCallInitiator = true;
   $('#call-invite-modal').style.display = 'flex';
   $('#call-invite-text').textContent = '正在邀请对方视频通话...';
   $('#call-invite-waiting').style.display = '';
   $('#call-invite-incoming').style.display = 'none';
 
-  // 连接信令服务器并发送邀请
-  signalSocket = new WebSocket(`${WS_BASE}/signal/${currentRoom.id}?userId=${currentUser.id}`);
-
-  signalSocket.addEventListener('open', () => {
-    console.log('[WebRTC] signalSocket connected, sending invite...');
-    signalSocket.send(JSON.stringify({ type: 'invite', targetId: 'peer' }));
-    // 定期重发 invite，直到对方上线响应
-    inviteRetry = setInterval(() => {
-      if (signalSocket?.readyState === WebSocket.OPEN) {
-        signalSocket.send(JSON.stringify({ type: 'invite', targetId: 'peer' }));
-        console.log('[WebRTC] invite resent');
-      }
-    }, 3000);
-    // 30秒超时
-    callTimeout = setTimeout(() => {
-      if ($('#call-invite-modal').style.display !== 'none') {
-        $('#call-invite-modal').style.display = 'none';
-        uiAlert('对方未接听，通话已取消');
-        hangupCall();
-      }
-    }, 30000);
-  });
-
-  signalSocket.addEventListener('error', (err) => {
-    console.error('[WebRTC] signalSocket error:', err);
-  });
-
-  signalSocket.addEventListener('close', (code, reason) => {
-    console.log('[WebRTC] signalSocket closed:', code, reason);
-  });
-
-  // 预创建 PeerConnection（但不发送 offer，等对方接受后再发）
-  peerConnection = new RTCPeerConnection({
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-    ]
-  });
-
-  let hasRemoteDesc = false;
-  let pendingCandidates = [];
-
-  peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-      if (hasRemoteDesc && signalSocket?.readyState === WebSocket.OPEN) {
-        signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate, targetId: 'peer' }));
-      } else {
-        pendingCandidates.push(event.candidate);
-      }
+  // 发送邀请（复用 joinRoom 中创建的 signalSocket）
+  signalSocket.send(JSON.stringify({ type: 'invite', targetId: 'peer' }));
+  console.log('[WebRTC] invite sent');
+  inviteRetry = setInterval(() => {
+    if (signalSocket?.readyState === WebSocket.OPEN) {
+      signalSocket.send(JSON.stringify({ type: 'invite', targetId: 'peer' }));
+      console.log('[WebRTC] invite resent');
     }
-  };
+  }, 3000);
+  callTimeout = setTimeout(() => {
+    if ($('#call-invite-modal').style.display !== 'none') {
+      $('#call-invite-modal').style.display = 'none';
+      uiAlert('对方未接听，通话已取消');
+      hangupCall();
+    }
+  }, 30000);
+}
 
-  signalSocket.addEventListener('message', async (event) => {
+let hasRemoteDesc = false;
+let pendingCandidates = [];
+
+function setupSignalHandlers(ws) {
+  ws.addEventListener('message', async (event) => {
     const data = JSON.parse(event.data);
     if (data.senderId === currentUser.id) return;
     console.log('[WebRTC] received:', data.type, 'from:', data.senderId?.substring(0, 8));
 
     try {
     if (data.type === 'invite') {
-      // 收到视频通话邀请，显示来电弹窗
-      isCallInitiator = false;
+      // 收到视频通话邀请，仅在没有进行中的通话时显示来电弹窗
+      if (!peerConnection && !isCallInitiator && $('#call-invite-modal').style.display === 'none' && $('#video-modal').style.display === 'none') {
+        isCallInitiator = false;
       const { data: prof } = await supabase.from('profiles').select('username').eq('id', data.senderId).maybeSingle();
       const callerName = prof?.username || data.senderId.substring(0, 8);
       $('#call-invite-modal').style.display = 'flex';
@@ -1017,9 +993,38 @@ async function startVideoCall() {
       console.error('[WebRTC] error:', err);
     }
   });
+
+  ws.addEventListener('error', (err) => {
+    console.error('[WebRTC] signalSocket error:', err);
+  });
+
+  ws.addEventListener('close', (code, reason) => {
+    console.log('[WebRTC] signalSocket closed:', code, reason);
+  });
 }
 
 async function startVideoStream() {
+  // 创建 PeerConnection
+  peerConnection = new RTCPeerConnection({
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+    ]
+  });
+
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      if (hasRemoteDesc && signalSocket?.readyState === WebSocket.OPEN) {
+        signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: event.candidate, targetId: 'peer' }));
+      } else {
+        pendingCandidates.push(event.candidate);
+      }
+    }
+  };
+
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   $('#local-video').srcObject = localStream;
   localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
