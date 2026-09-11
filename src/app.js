@@ -447,6 +447,13 @@ async function joinRoom(roomId) {
 
   await loadMessages();
   connectChatSocket(roomId);
+
+  // 滚动到顶部时加载更多历史消息
+  $('#messages').addEventListener('scroll', async () => {
+    if ($('#messages').scrollTop === 0 && currentRoom && !isLoadingMore) {
+      await loadMoreMessages();
+    }
+  });
 }
 
 function disconnectChat() {
@@ -524,7 +531,7 @@ function connectChatSocket(roomId) {
   });
 }
 
-async function appendMessage(msg) {
+async function createMessageElement(msg) {
   const isMine = msg.sender_id === currentUser.id;
   const time = new Date(msg.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
@@ -549,9 +556,7 @@ async function appendMessage(msg) {
 
   if (msg.deleted) {
     div.innerHTML = `<div class="recalled">该消息已撤回</div><div class="time">${time}</div>`;
-    $('#messages').appendChild(div);
-    $('#messages').scrollTop = $('#messages').scrollHeight;
-    return;
+    return div;
   }
 
   const canRecall = isMine && msg.id && (Date.now() - new Date(msg.created_at).getTime() < 2 * 60 * 1000);
@@ -577,6 +582,13 @@ async function appendMessage(msg) {
       markRecalled(msg.id);
     });
   }
+  return div;
+}
+
+async function appendMessage(msg) {
+  const div = await createMessageElement(msg);
+  $('#messages').appendChild(div);
+  $('#messages').scrollTop = $('#messages').scrollHeight;
 
   $('#messages').appendChild(div);
   $('#messages').scrollTop = $('#messages').scrollHeight;
@@ -596,20 +608,56 @@ function appendSystemMessage(text) {
   $('#messages').appendChild(div);
 }
 
+let oldestTimestamp = null;
+let isLoadingMore = false;
+
 async function loadMessages() {
-  const { data } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('room_id', currentRoom.id)
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const token = (await supabase.auth.getSession()).data.session?.access_token;
+  const res = await fetch(`${API_BASE}/api/messages?roomId=${currentRoom.id}&limit=50`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const data = await res.json();
 
   const ordered = (data || []).reverse();
   $('#messages').innerHTML = '';
   for (const msg of ordered) {
     await appendMessage(msg);
   }
+  if (ordered.length > 0) {
+    oldestTimestamp = ordered[0].created_at;
+  }
   $('#messages').scrollTop = $('#messages').scrollHeight;
+}
+
+async function loadMoreMessages() {
+  if (isLoadingMore || !oldestTimestamp) return;
+  isLoadingMore = true;
+
+  const token = (await supabase.auth.getSession()).data.session?.access_token;
+  const res = await fetch(`${API_BASE}/api/messages?roomId=${currentRoom.id}&limit=50&before=${oldestTimestamp}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  const data = await res.json();
+
+  const olderMessages = (data || []).reverse();
+  if (olderMessages.length === 0) {
+    isLoadingMore = false;
+    return;
+  }
+
+  const prevScrollHeight = $('#messages').scrollHeight;
+
+  // 在顶部插入旧消息
+  for (let i = 0; i < olderMessages.length; i++) {
+    const msg = olderMessages[i];
+    const div = await createMessageElement(msg);
+    $('#messages').insertBefore(div, $('#messages').firstChild);
+  }
+
+  oldestTimestamp = olderMessages[0].created_at;
+  // 保持滚动位置
+  $('#messages').scrollTop = $('#messages').scrollHeight - prevScrollHeight;
+  isLoadingMore = false;
 }
 
 $('#message-form').addEventListener('submit', async (e) => {
