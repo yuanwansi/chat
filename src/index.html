@@ -55,9 +55,12 @@
         </div>
         <p class="eyebrow">FRIEND CHAT / 等你上线</p>
         <div class="user-info">
-        <div class="user-info">
           <span id="current-user"></span>
-          <button id="logout-btn">退出</button>
+          <button id="profile-btn">个人信息</button>
+        </div>
+        <div class="search-box">
+          <input type="text" id="room-search" placeholder="搜索房间名称..." autocomplete="off">
+          <label class="filter-lock"><input type="checkbox" id="only-locked"> 只看加密</label>
         </div>
         <div class="room-list" id="room-list"></div>
         <button id="create-room-btn">+ 创建聊天室</button>
@@ -78,6 +81,44 @@
           <button type="submit" id="send-btn" disabled>发送</button>
         </form>
       </main>
+    </div>
+  </div>
+
+  <!-- 个人信息管理弹窗 -->
+  <div id="profile-modal" class="modal" style="display:none">
+    <div class="modal-content profile-content">
+      <h2 class="modal-title">个人信息管理</h2>
+      <p class="modal-sub">管理您的账号资料与安全设置</p>
+
+      <div class="profile-section">
+        <label>用户名</label>
+        <div class="inline-row">
+          <input type="text" id="pf-username" autocomplete="off">
+          <button id="pf-save-username">保存</button>
+        </div>
+      </div>
+
+      <div class="profile-section">
+        <label>邮箱</label>
+        <div class="inline-row">
+          <input type="email" id="pf-email">
+          <button id="pf-save-email">保存</button>
+        </div>
+      </div>
+
+      <div class="profile-section">
+        <label>修改密码</label>
+        <div class="inline-row">
+          <input type="password" id="pf-new-password" placeholder="新密码（至少6位）">
+          <button id="pf-save-password">更新</button>
+        </div>
+      </div>
+
+      <div class="profile-actions">
+        <button id="pf-logout" class="quiet">退出登录</button>
+        <button id="pf-delete" class="danger">注销账号</button>
+        <button id="pf-close" class="close">关闭</button>
+      </div>
     </div>
   </div>
 

@@ -104,6 +104,87 @@ $('#register-form').addEventListener('submit', async (e) => {
   showPage('login');
 });
 
+$('#profile-btn').addEventListener('click', () => {
+  $('#pf-username').value = $('#current-user').textContent || '';
+  $('#pf-email').value = currentUser?.email || '';
+  $('#profile-modal').style.display = 'flex';
+});
+
+$('#pf-close').addEventListener('click', () => {
+  $('#profile-modal').style.display = 'none';
+});
+
+$('#pf-save-username').addEventListener('click', async () => {
+  const newName = $('#pf-username').value.trim();
+  if (!newName) return alert('用户名不能为空');
+  const { data: existName } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', newName)
+    .maybeSingle();
+  if (existName && existName.id !== currentUser.id) return alert('该用户名已被占用');
+  const { error } = await supabase.from('profiles').upsert({
+    id: currentUser.id,
+    username: newName,
+    email: currentUser.email
+  });
+  if (error) return alert('保存失败：' + error.message);
+  await refreshUserLabel();
+  alert('用户名已更新');
+});
+
+$('#pf-save-email').addEventListener('click', async () => {
+  const newEmail = $('#pf-email').value.trim();
+  if (!newEmail.includes('@')) return alert('请输入有效邮箱');
+  const { error } = await supabase.auth.updateUser({ email: newEmail });
+  if (error) return alert('更新邮箱失败：' + error.message);
+  await supabase.from('profiles').upsert({
+    id: currentUser.id,
+    username: $('#current-user').textContent || newEmail.split('@')[0],
+    email: newEmail
+  });
+  alert('邮箱已更新，请到新邮箱确认');
+});
+
+$('#pf-save-password').addEventListener('click', async () => {
+  const newPwd = $('#pf-new-password').value;
+  if (newPwd.length < 6) return alert('密码至少需要 6 位');
+  const { error } = await supabase.auth.updateUser({ password: newPwd });
+  if (error) return alert('更新密码失败：' + error.message);
+  $('#pf-new-password').value = '';
+  alert('密码已更新');
+});
+
+$('#pf-logout').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  currentUser = null;
+  $('#profile-modal').style.display = 'none';
+  disconnectChat();
+  showPage('login');
+});
+
+$('#pf-delete').addEventListener('click', async () => {
+  const pwd = prompt('注销账号不可恢复！请输入当前密码以确认注销：');
+  if (!pwd) return;
+  const email = currentUser?.email;
+  const { error: signErr } = await supabase.auth.signInWithPassword({ email, password: pwd });
+  if (signErr) return alert('密码错误，注销已取消');
+  const uid = currentUser.id;
+  await supabase.from('room_members').delete().eq('user_id', uid);
+  await supabase.from('profiles').delete().eq('id', uid);
+  const { error: delErr } = await supabase.auth.admin.deleteUser(uid);
+  if (delErr) {
+    alert('账号资料已清理，但注销未完成：' + delErr.message);
+    return;
+  }
+  await supabase.auth.signOut();
+  currentUser = null;
+  $('#profile-modal').style.display = 'none';
+  disconnectChat();
+  showPage('login');
+  alert('账号已注销');
+});
+
 $('#logout-btn').addEventListener('click', async () => {
   await supabase.auth.signOut();
   currentUser = null;
@@ -155,17 +236,36 @@ $('#current-user').addEventListener('click', async () => {
   alert('昵称已更新');
 });
 
+let allRooms = [];
+let onlyLocked = false;
+let searchKeyword = '';
+
 async function loadRooms() {
   const { data: rooms } = await supabase
     .from('rooms')
     .select('*')
     .order('created_at', { ascending: true });
 
-  renderRoomList(rooms || []);
+  allRooms = rooms || [];
+  renderRoomList();
 }
 
-function renderRoomList(rooms) {
+function filteredRooms() {
+  const kw = searchKeyword.trim().toLowerCase();
+  return allRooms.filter(r => {
+    const matchLock = onlyLocked ? !!r.password : true;
+    const matchKw = kw ? (r.name || '').toLowerCase().includes(kw) : true;
+    return matchLock && matchKw;
+  });
+}
+
+function renderRoomList() {
   const list = $('#room-list');
+  const rooms = filteredRooms();
+  if (!rooms.length) {
+    list.innerHTML = '<div class="empty-tip">没有符合条件的房间</div>';
+    return;
+  }
   list.innerHTML = rooms.map(r => `
     <div class="room-item ${currentRoom?.id === r.id ? 'active' : ''}" data-id="${r.id}">
       # ${r.name} ${r.password ? '🔒' : ''}
@@ -176,6 +276,16 @@ function renderRoomList(rooms) {
     el.addEventListener('click', () => joinRoom(el.dataset.id));
   });
 }
+
+$('#room-search').addEventListener('input', (e) => {
+  searchKeyword = e.target.value || '';
+  renderRoomList();
+});
+
+$('#only-locked').addEventListener('change', (e) => {
+  onlyLocked = e.target.checked;
+  renderRoomList();
+});
 
 async function createRoom(name) {
   const { data: existing } = await supabase
