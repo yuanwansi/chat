@@ -65,21 +65,10 @@ async function initChat() {
 }
 
 async function loadRooms() {
-  const { data: memberships } = await supabase
-    .from('room_members')
-    .select('room_id')
-    .eq('user_id', currentUser.id);
-
-  if (!memberships?.length) {
-    await createRoom('默认聊天室');
-    return;
-  }
-
-  const roomIds = memberships.map(m => m.room_id);
   const { data: rooms } = await supabase
     .from('rooms')
     .select('*')
-    .in('id', roomIds);
+    .order('created_at', { ascending: true });
 
   renderRoomList(rooms || []);
 }
