@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>朋友聊天</title>
+  <title>潮汐信笺</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23276e72'/%3E%3Cpath d='M6 21c3-4 6-4 9 0s6 4 9 0' stroke='%23f6f5f0' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M6 14c3-4 6-4 9 0s6 4 9 0' stroke='%23bddbd0' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
@@ -13,7 +14,7 @@
   <!-- 登录页 -->
   <div id="login-page" class="page">
     <div class="login-box">
-      <h1>朋友聊天</h1>
+      <h1>潮汐信笺</h1>
       <p class="lede">用用户名或邮箱登录，与好友实时畅聊。</p>
       <form id="login-form">
         <input type="text" id="email" placeholder="用户名或邮箱" required autocomplete="off">
@@ -53,7 +54,7 @@
           <span class="brand-mark">↗</span>
           <span class="brand-name">潮汐信笺</span>
         </div>
-        <p class="eyebrow">FRIEND CHAT / 等你上线</p>
+        <p class="eyebrow">TIDE LETTER / 等你上线</p>
         <div class="user-info">
           <span id="current-user"></span>
           <button id="profile-btn">个人信息</button>
@@ -63,13 +64,13 @@
           <label class="filter-lock"><input type="checkbox" id="only-locked"> 只看加密</label>
         </div>
         <div class="room-list" id="room-list"></div>
-        <button id="create-room-btn">+ 创建聊天室</button>
+        <button id="create-room-btn">+ 创建岛屿</button>
       </aside>
 
       <main class="chat-main">
         <div class="chat-header" id="chat-header">
           <button id="back-btn">← 返回</button>
-          <span>选择一个聊天室</span>
+          <span>选择一个岛屿</span>
           <button id="video-call-btn" style="display:none">📹 视频通话</button>
           <button id="manage-room-btn" style="display:none">⚙ 管理房间</button>
         </div>

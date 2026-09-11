@@ -2,8 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = 'https://dumptrrjlwhkaepxdkye.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1bXB0cnJqbHdoa2FlcHhka3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMTUzMjEsImV4cCI6MjEwNDU5MTMyMX0.NbhAFD2S-YP3BgIgyBl_WQSFTIWr3istMn6Z5boPPD0';
-const WS_BASE = 'wss://chat.yuanxiangxi039.workers.dev';
-const API_BASE = 'https://chat.yuanxiangxi039.workers.dev';
+const WS_BASE = 'wss://letter.yuanxiangxi039.workers.dev';
+const API_BASE = 'https://letter.yuanxiangxi039.workers.dev';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -197,7 +197,7 @@ async function ensureProfile() {
     .eq('id', currentUser.id)
     .maybeSingle();
   if (prof?.username) return prof.username;
-  const fallback = (currentUser.email || '').split('@')[0] || '朋友';
+  const fallback = (currentUser.email || '').split('@')[0] || '潮汐信笺';
   await supabase.from('profiles').upsert({
     id: currentUser.id,
     username: fallback,
@@ -287,11 +287,11 @@ async function createRoom(name) {
     .eq('name', name);
 
   if (existing && existing.length > 0) {
-    alert('聊天室名称已存在，请换一个名称');
+    alert('岛屿名称已存在，请换一个名称');
     return;
   }
 
-  const password = prompt('请为该聊天室设置密码（直接留空则不设密码，任何人可进入）：');
+  const password = prompt('请为该岛屿设置密码（直接留空则不设密码，任何人可进入）：');
   if (password === null) return;
 
   const pwdHash = await hashPassword(password || '');
@@ -317,7 +317,7 @@ async function createRoom(name) {
 $('#manage-room-btn').addEventListener('click', async () => {
   if (!currentRoom?.isCreator) return;
 
-  const action = prompt('输入 1 = 修改密码，2 = 解散聊天室：');
+  const action = prompt('输入 1 = 修改密码，2 = 解散岛屿：');
   if (action === '1') {
     const newPwd = prompt('输入新密码（留空表示取消密码）：');
     if (newPwd === null) return;
@@ -329,7 +329,7 @@ $('#manage-room-btn').addEventListener('click', async () => {
     alert('密码已更新');
     await loadRooms();
   } else if (action === '2') {
-    const confirmText = prompt('解散后该聊天室及消息将不可恢复，请输入聊天室名称以确认：');
+    const confirmText = prompt('解散后该岛屿及消息将不可恢复，请输入岛屿名称以确认：');
     if (confirmText === null) return;
     const { data: roomRow } = await supabase
       .from('rooms')
@@ -350,12 +350,12 @@ $('#manage-room-btn').addEventListener('click', async () => {
     $('#message-input').disabled = true;
     $('#send-btn').disabled = true;
     await loadRooms();
-    alert('聊天室已解散');
+    alert('岛屿已解散');
   }
 });
 
 $('#create-room-btn').addEventListener('click', () => {
-  const name = prompt('聊天室名称：');
+  const name = prompt('岛屿名称：');
   if (name) createRoom(name);
 });
 
@@ -371,11 +371,11 @@ async function joinRoom(roomId) {
   const isCreator = roomInfo.created_by === currentUser.id;
 
   if (roomInfo.password && !isCreator) {
-    const input = prompt('该聊天室已加密，请输入密码：');
+    const input = prompt('该岛屿已加密，请输入密码：');
     if (input === null) return;
     const inputHash = await hashPassword(input);
     if (inputHash !== roomInfo.password) {
-      alert('密码错误，无法进入该聊天室');
+      alert('密码错误，无法进入该岛屿');
       return;
     }
   }
@@ -412,7 +412,7 @@ function disconnectChat() {
 
 $('#back-btn').addEventListener('click', async () => {
   disconnectChat();
-  $('#chat-header span').textContent = '选择一个聊天室';
+  $('#chat-header span').textContent = '选择一个岛屿';
   $('#video-call-btn').style.display = 'none';
   $('#manage-room-btn').style.display = 'none';
   $('#message-input').disabled = true;
