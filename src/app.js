@@ -806,10 +806,24 @@ $('#file-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
+  // 文件大小校验（最大 10MB）
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  if (file.size > MAX_FILE_SIZE) {
+    e.target.value = '';
+    return await uiAlert('文件大小不能超过 10MB');
+  }
+
+  // 文件类型校验
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    e.target.value = '';
+    return await uiAlert('仅支持 JPG、PNG、GIF、WebP、SVG 格式的图片');
+  }
+
   const res = await fetch(`${API_BASE}/api/upload-url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename: file.name, userId: currentUser.id })
+    body: JSON.stringify({ filename: file.name, userId: currentUser.id, contentType: file.type })
   });
   const { uploadUrl, key } = await res.json();
 
