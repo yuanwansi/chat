@@ -388,6 +388,7 @@ async function joinRoom(roomId) {
   disconnectChat();
 
   currentRoom = { id: roomId, isCreator };
+  document.body.classList.add('in-room');
   renderRoomList([]);
   await loadRooms();
 
@@ -406,7 +407,19 @@ function disconnectChat() {
   if (chatSocket) { chatSocket.close(); chatSocket = null; }
   if (signalSocket) { signalSocket.close(); signalSocket = null; }
   currentRoom = null;
+  document.body.classList.remove('in-room');
 }
+
+$('#back-btn').addEventListener('click', async () => {
+  disconnectChat();
+  $('#chat-header span').textContent = '选择一个聊天室';
+  $('#video-call-btn').style.display = 'none';
+  $('#manage-room-btn').style.display = 'none';
+  $('#message-input').disabled = true;
+  $('#send-btn').disabled = true;
+  $('#messages').innerHTML = '';
+  await loadRooms();
+});
 
 function connectChatSocket(roomId) {
   chatSocket = new WebSocket(`${WS_BASE}/chat/${roomId}?userId=${currentUser.id}`);
