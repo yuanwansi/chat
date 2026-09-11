@@ -185,13 +185,6 @@ $('#pf-delete').addEventListener('click', async () => {
   alert('账号已注销');
 });
 
-$('#logout-btn').addEventListener('click', async () => {
-  await supabase.auth.signOut();
-  currentUser = null;
-  disconnectChat();
-  showPage('login');
-});
-
 async function initChat() {
   await refreshUserLabel();
   await loadRooms();
