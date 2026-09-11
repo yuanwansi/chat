@@ -1030,7 +1030,16 @@ async function startVideoStream() {
   $('#local-video').srcObject = localStream;
   localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
   peerConnection.ontrack = (event) => {
+    console.log('[WebRTC] remote track received:', event.track.kind);
     $('#remote-video').srcObject = event.streams[0];
+  };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log('[WebRTC] ICE connection state:', peerConnection.iceConnectionState);
+  };
+
+  peerConnection.onconnectionstatechange = () => {
+    console.log('[WebRTC] connection state:', peerConnection.connectionState);
   };
 }
 
