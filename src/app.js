@@ -871,15 +871,24 @@ async function startVideoCall() {
     $('#remote-video').srcObject = event.streams[0];
   };
 
+  let pendingCandidates = [];
+
   peerConnection.onicecandidate = (event) => {
-    if (event.candidate && signalSocket?.readyState === WebSocket.OPEN) {
-      signalSocket.send(JSON.stringify({
-        type: 'ice-candidate',
-        targetId: 'peer',
-        candidate: event.candidate
-      }));
+    if (event.candidate) {
+      if (hasRemoteDesc && signalSocket?.readyState === WebSocket.OPEN) {
+        signalSocket.send(JSON.stringify({
+          type: 'ice-candidate',
+          candidate: event.candidate,
+          targetId: 'peer'
+        }));
+      } else {
+        pendingCandidates.push(event.candidate);
+      }
     }
   };
+
+  let isCaller = false;
+  let hasRemoteDesc = false;
 
   signalSocket.addEventListener('message', async (event) => {
     const data = JSON.parse(event.data);
@@ -887,26 +896,49 @@ async function startVideoCall() {
     // 忽略自己发送的信令消息
     if (data.senderId === currentUser.id) return;
 
+    if (data.type === 'join') {
+      // 收到对方加入通知，决定谁是 caller（userId 字典序小的为 caller）
+      isCaller = currentUser.id < data.senderId;
+      if (isCaller) {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        signalSocket.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, targetId: 'peer' }));
+      }
+    }
+
     if (data.type === 'offer') {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+      hasRemoteDesc = true;
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
-      signalSocket.send(JSON.stringify({ ...answer.toJSON(), targetId: 'peer' }));
+      signalSocket.send(JSON.stringify({ type: 'answer', sdp: answer.sdp, targetId: 'peer' }));
+      // 发送缓存的 ICE candidate
+      for (const c of pendingCandidates) {
+        signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: c, targetId: 'peer' }));
+      }
+      pendingCandidates = [];
     }
 
     if (data.type === 'answer') {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+      hasRemoteDesc = true;
+      // 发送缓存的 ICE candidate
+      for (const c of pendingCandidates) {
+        signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: c, targetId: 'peer' }));
+      }
+      pendingCandidates = [];
     }
 
     if (data.type === 'ice-candidate') {
-      await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      if (hasRemoteDesc) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
     }
   });
 
   signalSocket.addEventListener('open', async () => {
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    signalSocket.send(JSON.stringify({ ...offer.toJSON(), targetId: 'peer' }));
+    // 通知对方自己已加入
+    signalSocket.send(JSON.stringify({ type: 'join', targetId: 'peer' }));
   });
 }
 
