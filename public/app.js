@@ -424,7 +424,7 @@ function connectChatSocket(roomId) {
     setTimeout(() => { if (currentRoom) connectChatSocket(currentRoom.id); }, 2000);
   });
 
-  chatSocket.addEventListener('message', (event) => {
+  chatSocket.addEventListener('message', async (event) => {
     const data = JSON.parse(event.data);
 
     switch (data.type) {
@@ -436,13 +436,20 @@ function connectChatSocket(roomId) {
         });
         break;
 
-      case 'presence':
+      case 'presence': {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', data.userId)
+          .maybeSingle();
+        const name = prof?.username || data.userId.slice(0, 8);
         if (data.status === 'online') {
-          appendSystemMessage(`${data.userId} 上线了`);
+          appendSystemMessage(`${name} 上线了`);
         } else {
-          appendSystemMessage(`${data.userId} 离线了`);
+          appendSystemMessage(`${name} 离线了`);
         }
         break;
+      }
 
       case 'typing':
         $('#typing-indicator').textContent = data.isTyping ? '对方正在输入...' : '';
@@ -494,11 +501,14 @@ async function loadMessages() {
     .from('messages')
     .select('*')
     .eq('room_id', currentRoom.id)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(50);
 
+  const ordered = (data || []).reverse();
   $('#messages').innerHTML = '';
-  (data || []).forEach(appendMessage);
+  for (const msg of ordered) {
+    await appendMessage(msg);
+  }
   $('#messages').scrollTop = $('#messages').scrollHeight;
 }
 
