@@ -515,10 +515,14 @@ $('#back-btn').addEventListener('click', async () => {
   await loadRooms();
 });
 
+let wsReconnectDelay = 1000;
+const WS_MAX_RECONNECT_DELAY = 30000;
+
 function connectChatSocket(roomId) {
   chatSocket = new WebSocket(`${WS_BASE}/chat/${roomId}?userId=${currentUser.id}`);
 
   chatSocket.addEventListener('open', () => {
+    wsReconnectDelay = 1000;
     $('#chat-header span').textContent = '聊天中（已连接）';
   });
 
@@ -527,8 +531,13 @@ function connectChatSocket(roomId) {
   });
 
   chatSocket.addEventListener('close', () => {
-    $('#chat-header span').textContent = '聊天中（连接断开，2秒后重连）';
-    setTimeout(() => { if (currentRoom) connectChatSocket(currentRoom.id); }, 2000);
+    $('#chat-header span').textContent = `聊天中（连接断开，${Math.round(wsReconnectDelay / 1000)}秒后重连）`;
+    setTimeout(() => {
+      if (currentRoom) {
+        wsReconnectDelay = Math.min(wsReconnectDelay * 2, WS_MAX_RECONNECT_DELAY);
+        connectChatSocket(currentRoom.id);
+      }
+    }, wsReconnectDelay);
   });
 
   chatSocket.addEventListener('message', async (event) => {
