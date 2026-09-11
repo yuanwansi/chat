@@ -489,8 +489,11 @@ function connectChatSocket(roomId) {
     switch (data.type) {
       case 'message':
         appendMessage({
+          id: data.messageId,
           sender_id: data.senderId,
           content: data.content,
+          type: data.messageType || 'text',
+          attachment_url: data.attachmentUrl || null,
           created_at: new Date(data.timestamp).toISOString()
         });
         break;
@@ -617,23 +620,22 @@ $('#message-form').addEventListener('submit', async (e) => {
 
   input.value = '';
 
-  await fetch(`${API_BASE}/api/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-    },
-    body: JSON.stringify({
-      room_id: currentRoom.id,
-      sender_id: currentUser.id,
-      content
-    })
-  });
-
   if (chatSocket?.readyState === WebSocket.OPEN) {
-    chatSocket.send(JSON.stringify({ type: 'message', content }));
+    chatSocket.send(JSON.stringify({ type: 'message', content, roomId: currentRoom.id }));
   } else {
-    await uiAlert('实时连接未建立，消息已保存但不会立即显示');
+    await fetch(`${API_BASE}/api/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      },
+      body: JSON.stringify({
+        room_id: currentRoom.id,
+        sender_id: currentUser.id,
+        content
+      })
+    });
+    await uiAlert('实时连接未建立，消息已保存，请刷新查看');
   }
 });
 
@@ -664,23 +666,24 @@ $('#file-input').addEventListener('change', async (e) => {
   await fetch(uploadUrl, { method: 'PUT', body: file });
 
   const imageUrl = `${API_BASE}/${key}`;
-  await fetch(`${API_BASE}/api/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-    },
-    body: JSON.stringify({
-      room_id: currentRoom.id,
-      sender_id: currentUser.id,
-      content: '[图片]',
-      type: 'image',
-      attachment_url: imageUrl
-    })
-  });
 
   if (chatSocket?.readyState === WebSocket.OPEN) {
-    chatSocket.send(JSON.stringify({ type: 'message', content: '[图片]' }));
+    chatSocket.send(JSON.stringify({ type: 'message', content: '[图片]', roomId: currentRoom.id, messageType: 'image', attachmentUrl: imageUrl }));
+  } else {
+    await fetch(`${API_BASE}/api/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+      },
+      body: JSON.stringify({
+        room_id: currentRoom.id,
+        sender_id: currentUser.id,
+        content: '[图片]',
+        type: 'image',
+        attachment_url: imageUrl
+      })
+    });
   }
 });
 
