@@ -36,10 +36,32 @@ function showPage(name) {
 $('#show-register').addEventListener('click', (e) => { e.preventDefault(); showPage('register'); });
 $('#show-login').addEventListener('click', (e) => { e.preventDefault(); showPage('login'); });
 
+$('#show-reset').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const mail = prompt('请输入注册时使用的邮箱，我们将发送重置密码邮件：');
+  if (!mail) return;
+  const { error } = await supabase.auth.resetPasswordForEmail(mail.trim(), {
+    redirectTo: window.location.origin
+  });
+  if (error) return alert('发送失败：' + error.message);
+  alert('重置密码邮件已发送，请到邮箱查收');
+});
+
 $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const account = $('#email').value.trim();
+  let loginEmail = account;
+  if (!account.includes('@')) {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('username', account)
+      .single();
+    if (!prof?.email) return alert('未找到该用户名对应的账号');
+    loginEmail = prof.email;
+  }
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: $('#email').value,
+    email: loginEmail,
     password: $('#password').value
   });
   if (error) return alert('登录失败：' + error.message);
@@ -50,11 +72,29 @@ $('#login-form').addEventListener('submit', async (e) => {
 
 $('#register-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const username = $('#reg-username').value.trim();
+  const emailVal = $('#reg-email').value.trim();
+  const { data: existName } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', username)
+    .single();
+  if (existName) return alert('该用户名已被占用，请换一个');
   const { data, error } = await supabase.auth.signUp({
-    email: $('#reg-email').value,
-    password: $('#reg-password').value
+    email: emailVal,
+    password: $('#reg-password').value,
+    options: { data: { username } }
   });
   if (error) return alert('注册失败：' + error.message);
+  if (data?.user) {
+    await supabase.from('profiles').upsert({
+      id: data.user.id,
+      username,
+      email: emailVal,
+      avatar_url: null,
+      created_at: new Date().toISOString()
+    });
+  }
   alert('注册成功！请登录');
   showPage('login');
 });
@@ -67,9 +107,37 @@ $('#logout-btn').addEventListener('click', async () => {
 });
 
 async function initChat() {
-  $('#current-user').textContent = currentUser.email;
+  await refreshUserLabel();
   await loadRooms();
 }
+
+async function refreshUserLabel() {
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', currentUser.id)
+    .single();
+  const name = prof?.username || currentUser.email;
+  $('#current-user').textContent = name;
+}
+
+$('#current-user').addEventListener('click', async () => {
+  const newName = prompt('输入新的昵称：');
+  if (!newName) return;
+  const { data: existName } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', newName.trim())
+    .single();
+  if (existName && existName.id !== currentUser.id) return alert('该昵称已被占用');
+  await supabase.from('profiles').upsert({
+    id: currentUser.id,
+    username: newName.trim(),
+    email: currentUser.email
+  });
+  await refreshUserLabel();
+  alert('昵称已更新');
+});
 
 async function loadRooms() {
   const { data: rooms } = await supabase
@@ -256,9 +324,19 @@ function connectChatSocket(roomId) {
   });
 }
 
-function appendMessage(msg) {
+async function appendMessage(msg) {
   const isMine = msg.sender_id === currentUser.id;
   const time = new Date(msg.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+  let senderName = '';
+  if (!isMine && msg.sender_id) {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', msg.sender_id)
+      .single();
+    senderName = prof?.username || msg.sender_id.slice(0, 8);
+  }
 
   let content = msg.content;
   if (msg.type === 'image' && msg.attachment_url) {
@@ -268,7 +346,7 @@ function appendMessage(msg) {
   const div = document.createElement('div');
   div.className = `message ${isMine ? 'mine' : 'other'}`;
   div.innerHTML = `
-    ${isMine ? '' : `<div class="sender">${msg.sender_id?.slice(0, 8)}</div>`}
+    ${isMine ? '' : `<div class="sender">${senderName}</div>`}
     <div>${content}</div>
     <div class="time">${time}</div>
   `;
