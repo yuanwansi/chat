@@ -871,6 +871,7 @@ async function startVideoCall() {
     $('#remote-video').srcObject = event.streams[0];
   };
 
+  let hasRemoteDesc = false;
   let pendingCandidates = [];
 
   peerConnection.onicecandidate = (event) => {
@@ -887,9 +888,6 @@ async function startVideoCall() {
     }
   };
 
-  let isCaller = false;
-  let hasRemoteDesc = false;
-
   signalSocket.addEventListener('message', async (event) => {
     const data = JSON.parse(event.data);
 
@@ -897,9 +895,8 @@ async function startVideoCall() {
     if (data.senderId === currentUser.id) return;
 
     if (data.type === 'join') {
-      // 收到对方加入通知，决定谁是 caller（userId 字典序小的为 caller）
-      isCaller = currentUser.id < data.senderId;
-      if (isCaller) {
+      // 收到对方加入通知，userId 更大的一方作为 caller 发送 offer
+      if (currentUser.id > data.senderId) {
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         signalSocket.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, targetId: 'peer' }));
