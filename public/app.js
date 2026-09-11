@@ -884,6 +884,9 @@ async function startVideoCall() {
   signalSocket.addEventListener('message', async (event) => {
     const data = JSON.parse(event.data);
 
+    // 忽略自己发送的信令消息
+    if (data.senderId === currentUser.id) return;
+
     if (data.type === 'offer') {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(data));
       const answer = await peerConnection.createAnswer();
