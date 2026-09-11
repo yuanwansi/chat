@@ -855,6 +855,7 @@ $('#video-call-btn').addEventListener('click', startVideoCall);
 
 let callTimeout = null;
 let isCallInitiator = false;
+let inviteRetry = null;
 
 async function startVideoCall() {
   isCallInitiator = true;
@@ -869,6 +870,13 @@ async function startVideoCall() {
   signalSocket.addEventListener('open', () => {
     console.log('[WebRTC] signalSocket connected, sending invite...');
     signalSocket.send(JSON.stringify({ type: 'invite', targetId: 'peer' }));
+    // 定期重发 invite，直到对方上线响应
+    inviteRetry = setInterval(() => {
+      if (signalSocket?.readyState === WebSocket.OPEN) {
+        signalSocket.send(JSON.stringify({ type: 'invite', targetId: 'peer' }));
+        console.log('[WebRTC] invite resent');
+      }
+    }, 3000);
     // 30秒超时
     callTimeout = setTimeout(() => {
       if ($('#call-invite-modal').style.display !== 'none') {
@@ -889,7 +897,13 @@ async function startVideoCall() {
 
   // 预创建 PeerConnection（但不发送 offer，等对方接受后再发）
   peerConnection = new RTCPeerConnection({
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+    ]
   });
 
   let hasRemoteDesc = false;
@@ -933,6 +947,7 @@ async function startVideoCall() {
       // 对方接受了邀请，发起方作为 caller 发送 offer
       if (isCallInitiator) {
         clearTimeout(callTimeout);
+        if (inviteRetry) { clearInterval(inviteRetry); inviteRetry = null; }
         $('#call-invite-modal').style.display = 'none';
         await startVideoStream();
         $('#video-modal').style.display = 'flex';
@@ -948,6 +963,7 @@ async function startVideoCall() {
       // 对方拒绝了邀请
       if (isCallInitiator) {
         clearTimeout(callTimeout);
+        if (inviteRetry) { clearInterval(inviteRetry); inviteRetry = null; }
         $('#call-invite-modal').style.display = 'none';
         hangupCall();
         await uiAlert('对方已拒绝视频通话');
@@ -1014,6 +1030,7 @@ async function startVideoStream() {
 
 function hangupCall() {
   if (callTimeout) { clearTimeout(callTimeout); callTimeout = null; }
+  if (inviteRetry) { clearInterval(inviteRetry); inviteRetry = null; }
   if (signalSocket && signalSocket.readyState === WebSocket.OPEN) {
     signalSocket.send(JSON.stringify({ type: 'hangup', targetId: 'peer' }));
   }
