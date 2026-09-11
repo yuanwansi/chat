@@ -19,7 +19,7 @@ export class ChatRoom extends DurableObject {
       type: 'presence',
       userId,
       status: 'online'
-    }, userId);
+    });
 
     server.addEventListener('message', (event) => {
       const data = JSON.parse(event.data as string);
@@ -31,7 +31,7 @@ export class ChatRoom extends DurableObject {
             senderId: userId,
             content: data.content,
             timestamp: Date.now()
-          }, userId);
+          });
           break;
 
         case 'typing':
@@ -50,7 +50,7 @@ export class ChatRoom extends DurableObject {
         type: 'presence',
         userId,
         status: 'offline'
-      }, userId);
+      });
     });
 
     return new Response(null, { status: 101, webSocket: client });
