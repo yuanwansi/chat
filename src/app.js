@@ -894,21 +894,28 @@ async function startVideoCall() {
     // 忽略自己发送的信令消息
     if (data.senderId === currentUser.id) return;
 
+    console.log('[WebRTC] received:', data.type, 'from:', data.senderId?.substring(0, 8));
+
+    try {
     if (data.type === 'join') {
       // 收到对方加入通知，userId 更大的一方作为 caller 发送 offer
       if (currentUser.id > data.senderId) {
+        console.log('[WebRTC] I am caller, creating offer...');
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         signalSocket.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, targetId: 'peer' }));
+        console.log('[WebRTC] offer sent');
       }
     }
 
     if (data.type === 'offer') {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+      console.log('[WebRTC] received offer, setting remote description...');
+      await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
       hasRemoteDesc = true;
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
       signalSocket.send(JSON.stringify({ type: 'answer', sdp: answer.sdp, targetId: 'peer' }));
+      console.log('[WebRTC] answer sent');
       // 发送缓存的 ICE candidate
       for (const c of pendingCandidates) {
         signalSocket.send(JSON.stringify({ type: 'ice-candidate', candidate: c, targetId: 'peer' }));
@@ -917,7 +924,8 @@ async function startVideoCall() {
     }
 
     if (data.type === 'answer') {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+      console.log('[WebRTC] received answer, setting remote description...');
+      await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
       hasRemoteDesc = true;
       // 发送缓存的 ICE candidate
       for (const c of pendingCandidates) {
@@ -930,6 +938,9 @@ async function startVideoCall() {
       if (hasRemoteDesc) {
         await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
       }
+    }
+    } catch (err) {
+      console.error('[WebRTC] error:', err);
     }
   });
 
